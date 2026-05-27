@@ -1,11 +1,13 @@
 // GlobalMap v1.00.01 — local dev server
 // Homage to 2600.com
 // Usage: node server.js
+// Usage with Claude AI: ANTHROPIC_API_KEY=sk-ant-... node server.js
 // Then open: http://localhost:2600
 
-const http = require('http');
-const fs   = require('fs');
-const path = require('path');
+const http  = require('http');
+const https = require('https');
+const fs    = require('fs');
+const path  = require('path');
 
 const PORT = 2600;
 const STATIC_DIR = __dirname;
@@ -94,6 +96,62 @@ const server = http.createServer((req, res) => {
 
     res.writeHead(200, {'Content-Type':'application/json','Access-Control-Allow-Origin':'*'});
     res.end(JSON.stringify(data));
+    return;
+  }
+
+  // ── Claude AI proxy ────────────────────────────────────────────────────────
+  if (urlPath === '/api/claude' && req.method === 'POST') {
+    const apiKey = process.env.ANTHROPIC_API_KEY || req.headers['x-api-key'] || '';
+    if (!apiKey) {
+      res.writeHead(503, {'Content-Type':'application/json','Access-Control-Allow-Origin':'*'});
+      res.end(JSON.stringify({error:'Claude not configured. Either:\n  1. Set env var: ANTHROPIC_API_KEY=sk-ant-... node server.js\n  2. Enter your API key in the Ask Claude panel UI'}));
+      return;
+    }
+    let body = '';
+    req.on('data', d => body += d);
+    req.on('end', () => {
+      let parsed;
+      try { parsed = JSON.parse(body); } catch(e) { res.writeHead(400); res.end('bad json'); return; }
+
+      const msgs = [];
+      if (parsed.history) parsed.history.forEach(m => msgs.push({role:m.role,content:m.content||m.text||''}));
+      msgs.push({role:'user',content:parsed.message||''});
+
+      const payload = JSON.stringify({
+        model: 'claude-sonnet-4-6',
+        max_tokens: 1024,
+        system: parsed.system || 'You are an intelligence analyst for a geospatial operations dashboard.',
+        messages: msgs
+      });
+
+      const options = {
+        hostname: 'api.anthropic.com',
+        path: '/v1/messages',
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-api-key': apiKey,
+          'anthropic-version': '2023-06-01',
+          'Content-Length': Buffer.byteLength(payload)
+        }
+      };
+
+      const preq = https.request(options, pres => {
+        let data = '';
+        pres.on('data', d => data += d);
+        pres.on('end', () => {
+          try {
+            const j = JSON.parse(data);
+            const reply = j.content?.[0]?.text || j.error?.message || 'No response';
+            res.writeHead(200, {'Content-Type':'application/json','Access-Control-Allow-Origin':'*'});
+            res.end(JSON.stringify({reply, model: j.model, usage: j.usage}));
+          } catch(e) { res.writeHead(500); res.end(data); }
+        });
+      });
+      preq.on('error', e => { res.writeHead(502); res.end(e.message); });
+      preq.write(payload);
+      preq.end();
+    });
     return;
   }
 

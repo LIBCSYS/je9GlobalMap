@@ -145,7 +145,5 @@ fetch('/api/network-cities')
 
 animate();
 window.addEventListener('resize',()=>{camera.aspect=window.innerWidth/window.innerHeight;camera.updateProjectionMatrix();renderer.setSize(window.innerWidth,window.innerHeight);});
-</script>
-<script>(function(){fetch('https://je9.us/track.php',{method:'POST',mode:'no-cors',headers:{'Content-Type':'application/json'},body:JSON.stringify({visit_token:`${Date.now()}-${Math.random().toString(36).slice(2,10)}`,origin_host:location.hostname,path:location.pathname,referrer:document.referrer,language:navigator.language,timezone:Intl.DateTimeFormat().resolvedOptions().timeZone,screen:`${innerWidth}x${innerHeight}`}),keepalive:true}).catch(()=>{})})();</script>
-</body>
+</script></body>
 </html>

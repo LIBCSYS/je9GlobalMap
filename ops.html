@@ -370,6 +370,16 @@ textarea.fi{resize:vertical;min-height:50px;}
     <div class="rp-section" id="rp-askclaude">
       <div class="rp-header"><div class="rp-title">🤖 Ask Claude</div><div class="rp-sub">AI intelligence analyst</div></div>
       <div class="rp-body" style="display:flex;flex-direction:column;height:calc(100% - 60px);padding:0">
+        <div id="claude-local-cfg" style="display:none;padding:8px 12px;border-bottom:1px solid var(--border);background:rgba(255,170,0,.05)">
+          <div style="font-size:9px;color:#ffaa00;letter-spacing:.1em;text-transform:uppercase;margin-bottom:5px">Local Mode — Anthropic API Key</div>
+          <div style="display:flex;gap:6px">
+            <input id="claude-apikey" type="password" placeholder="sk-ant-..." autocomplete="off"
+              style="flex:1;background:#0d1a24;border:1px solid var(--border);color:var(--fg);padding:5px 8px;border-radius:4px;font-size:11px;font-family:inherit;outline:none"
+              oninput="localStorage.setItem('gm_apikey',this.value)">
+            <button onclick="document.getElementById('claude-local-cfg').style.display='none'" style="background:transparent;border:1px solid var(--border);color:var(--muted);padding:4px 8px;border-radius:4px;font-size:10px;cursor:pointer">✕</button>
+          </div>
+          <div style="font-size:9px;color:var(--muted);margin-top:4px">Key stays in browser — never sent anywhere except Anthropic via this server.</div>
+        </div>
         <div id="claude-msgs" style="flex:1;overflow-y:auto;padding:12px;display:flex;flex-direction:column;gap:8px;min-height:0"></div>
         <div style="padding:10px;border-top:1px solid var(--border);background:rgba(0,0,0,.3)">
           <div style="display:flex;gap:6px;align-items:flex-end">
@@ -379,7 +389,10 @@ textarea.fi{resize:vertical;min-height:50px;}
             ></textarea>
             <button onclick="sendClaude()" style="background:var(--accent);color:#000;border:none;padding:7px 12px;border-radius:4px;font-size:11px;font-weight:700;cursor:pointer;white-space:nowrap">Send</button>
           </div>
-          <div style="font-size:9px;color:var(--muted);margin-top:4px">Shift+Enter for newline · Enter to send</div>
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-top:4px">
+            <div style="font-size:9px;color:var(--muted)">Shift+Enter for newline · Enter to send</div>
+            <div id="claude-mode-badge" style="font-size:9px;color:var(--muted);letter-spacing:.06em"></div>
+          </div>
         </div>
       </div>
     </div>
@@ -543,7 +556,11 @@ scene.add(new THREE.Points(sg,new THREE.PointsMaterial({color:0x88ccee,size:.035
 const markerGroup=new THREE.Group();
 globeGroup.add(markerGroup);
 
-function clearMarkers(){ while(markerGroup.children.length){ markerGroup.remove(markerGroup.children[0]); } }
+let _pinPos=[],_pinCol=[],_pinMeta=[];
+function clearMarkers(){
+  while(markerGroup.children.length) markerGroup.remove(markerGroup.children[0]);
+  _pinPos=[]; _pinCol=[]; _pinMeta=[];
+}
 
 function latLngToVec(lat,lng){
   const phi=(90-lat)*Math.PI/180, theta=(lng+180)*Math.PI/180;
@@ -565,12 +582,23 @@ function makeSprite(line1,line2,color){
 function addPin(lat,lng,color,size,line1,line2){
   if(lat==null||lng==null||isNaN(lat)||isNaN(lng)) return;
   const {x,y,z}=latLngToVec(lat,lng);
-  const dot=new THREE.Mesh(new THREE.SphereGeometry(size||.012,8,8),new THREE.MeshBasicMaterial({color}));
-  dot.position.set(x,y,z); markerGroup.add(dot);
-  if(line1){
-    const lbl=makeSprite(line1,line2);
-    lbl.position.set(x*1.15,y*1.15+.06,z*1.15); markerGroup.add(lbl);
+  _pinPos.push(x,y,z);
+  _pinCol.push(((color>>16)&255)/255,((color>>8)&255)/255,(color&255)/255);
+  if(line1) _pinMeta.push({x,y,z,line1,line2});
+}
+function flushPins(showLabels){
+  if(!_pinPos.length) return;
+  const geo=new THREE.BufferGeometry();
+  geo.setAttribute('position',new THREE.Float32BufferAttribute(_pinPos,3));
+  geo.setAttribute('color',new THREE.Float32BufferAttribute(_pinCol,3));
+  markerGroup.add(new THREE.Points(geo,new THREE.PointsMaterial({size:.022,vertexColors:true,sizeAttenuation:true,transparent:true,opacity:.92})));
+  if(showLabels && _pinMeta.length<=60){
+    _pinMeta.forEach(({x,y,z,line1,line2})=>{
+      const lbl=makeSprite(line1,line2);
+      lbl.position.set(x*1.15,y*1.15+.06,z*1.15); markerGroup.add(lbl);
+    });
   }
+  _pinPos=[]; _pinCol=[]; _pinMeta=[];
 }
 
 function resizeGlobe(){
@@ -622,7 +650,7 @@ const modeLabels={
 async function loadGlobeFor(mode){
   clearMarkers();
   document.getElementById('globe-loading').classList.add('show');
-  document.getElementById('globe-count').textContent='—';
+  flushPins(true);document.getElementById('globe-count').textContent='—';
   document.getElementById('mode-indicator').textContent=modeLabels[mode]||mode.toUpperCase();
 
   try {
@@ -658,7 +686,7 @@ async function loadGlobeFor(mode){
       const maxV=cities[0]?.visits||1;
       cities.forEach(r=>{if(r.lat&&r.lng)addPin(r.lat,r.lng,0x00dcff,0.004+0.008*Math.min(r.visits/maxV,1),r.city,r.country);});
       const total=installs.length+units.length+airports.length+corps.length+banks.length+dcs.length+defense.length+refs.length+unis.length+telecom.length+cities.length;
-      document.getElementById('globe-count').textContent=total+' pins';
+      flushPins(true);document.getElementById('globe-count').textContent=total+' pins';
       document.getElementById('all-layer-counts').innerHTML=[
         ['◉ Bases',bases.length,'#ff6600'],
         ['🏛 Embassies',embassies.length,'#00aaff'],
@@ -677,28 +705,28 @@ async function loadGlobeFor(mode){
     } else if(mode==='installations'){
       const rows=await fetch('/api/installations').then(r=>r.json());
       rows.forEach(r=>{ if(r.lat&&r.lng) addPin(r.lat,r.lng,0xff6600,.013,r.name,r.country+' · '+(r.branch||'')); });
-      document.getElementById('globe-count').textContent=rows.filter(r=>r.lat&&r.lng).length+' bases';
+      flushPins(true);document.getElementById('globe-count').textContent=rows.filter(r=>r.lat&&r.lng).length+' bases';
 
     } else if(mode==='missions'){
       const rows=await fetch('/api/missions').then(r=>r.json());
       const colors={ACTIVE:0x00ff88,CRITICAL:0xff3344,PENDING:0xffcc00,COMPLETE:0x4a7a9b};
       rows.forEach(r=>{ if(r.lat&&r.lng) addPin(r.lat,r.lng,colors[r.status]||0xffcc00,.014,r.title,r.location||r.status); });
-      document.getElementById('globe-count').textContent=rows.filter(r=>r.lat&&r.lng).length+' ops';
+      flushPins(true);document.getElementById('globe-count').textContent=rows.filter(r=>r.lat&&r.lng).length+' ops';
 
     } else if(mode==='units'){
       const rows=await fetch('/api/units').then(r=>r.json());
       rows.forEach(r=>{ if(r.lat&&r.lng) addPin(r.lat,r.lng,0xff3344,.012,r.name,r.country+' · '+(r.nickname||r.type||'')); });
-      document.getElementById('globe-count').textContent=rows.filter(r=>r.lat&&r.lng).length+' units';
+      flushPins(true);document.getElementById('globe-count').textContent=rows.filter(r=>r.lat&&r.lng).length+' units';
 
     } else if(mode==='embassies'){
       const rows=await fetch('/api/installations?branch=Embassy').then(r=>r.json());
       rows.forEach(r=>{ if(r.lat&&r.lng) addPin(r.lat,r.lng,0x00aaff,.011,r.name,r.country); });
-      document.getElementById('globe-count').textContent=rows.filter(r=>r.lat&&r.lng).length+' embassies';
+      flushPins(true);document.getElementById('globe-count').textContent=rows.filter(r=>r.lat&&r.lng).length+' embassies';
 
     } else if(mode==='airports'){
       const rows=await fetch('/api/airports').then(r=>r.json());
       rows.forEach(r=>{ if(r.lat&&r.lng) addPin(r.lat,r.lng,0xffcc00,.009,r.iata+' · '+r.name,r.city+', '+r.country); });
-      document.getElementById('globe-count').textContent=rows.length+' airports';
+      flushPins(true);document.getElementById('globe-count').textContent=rows.length+' airports';
 
     } else if(mode==='corps'){
       const rows=await fetch('/api/corporations').then(r=>r.json());
@@ -708,23 +736,23 @@ async function loadGlobeFor(mode){
         addPin(r.lat,r.lng,isTop?0xff6600:0xffaa44,isTop?.014:.009,
           '#'+r.rank+' '+r.name, r.city+' · $'+r.revenue_usd_b+'B');
       });
-      document.getElementById('globe-count').textContent=rows.length+' corp HQs';
+      flushPins(true);document.getElementById('globe-count').textContent=rows.length+' corp HQs';
 
     } else if(mode==='banks'){
       const rows=await fetch('/api/banks').then(r=>r.json());
       rows.forEach(r=>{ if(r.lat&&r.lng) addPin(r.lat,r.lng,0xffd700,.011,r.name,r.country+' · $'+r.assets_usd_b+'B assets'); });
-      document.getElementById('globe-count').textContent=rows.filter(r=>r.lat&&r.lng).length+' banks';
+      flushPins(true);document.getElementById('globe-count').textContent=rows.filter(r=>r.lat&&r.lng).length+' banks';
 
     } else if(mode==='datacenters'){
       const rows=await fetch('/api/datacenters').then(r=>r.json());
       const colors={'Cloud Region':0x00aaff,'Hyperscale':0x00dcff,'Colocation':0x44eeff,'Government':0xff3344};
       rows.forEach(r=>{ if(r.lat&&r.lng) addPin(r.lat,r.lng,colors[r.type]||0x00aaff,.010,r.name,r.operator+' · '+r.type); });
-      document.getElementById('globe-count').textContent=rows.length+' data centers';
+      flushPins(true);document.getElementById('globe-count').textContent=rows.length+' data centers';
 
     } else if(mode==='defense'){
       const rows=await fetch('/api/defense').then(r=>r.json());
       rows.forEach(r=>{ if(r.lat&&r.lng) addPin(r.lat,r.lng,0xff4422,.012,r.name,r.country+' · $'+r.defense_revenue_usd_b+'B'); });
-      document.getElementById('globe-count').textContent=rows.filter(r=>r.lat&&r.lng).length+' contractors';
+      flushPins(true);document.getElementById('globe-count').textContent=rows.filter(r=>r.lat&&r.lng).length+' contractors';
 
     } else if(mode==='refineries'){
       const rows=await fetch('/api/refineries').then(r=>r.json());
@@ -733,13 +761,13 @@ async function loadGlobeFor(mode){
         const scale=0.008+0.016*Math.min(r.capacity_bpd/maxCap,1);
         if(r.lat&&r.lng) addPin(r.lat,r.lng,0xff7700,scale,r.name,r.operator+' · '+(r.capacity_bpd/1000).toFixed(0)+'K bpd');
       });
-      document.getElementById('globe-count').textContent=rows.filter(r=>r.lat&&r.lng).length+' refineries';
+      flushPins(true);document.getElementById('globe-count').textContent=rows.filter(r=>r.lat&&r.lng).length+' refineries';
 
     } else if(mode==='countries'){
       COUNTRIES_DATA.forEach(c=>{
         addPin(c.lat,c.lng,0x44bbff,0.009,c.flag+' '+c.name,c.region+' · Capital: '+c.capital);
       });
-      document.getElementById('globe-count').textContent=COUNTRIES_DATA.length+' countries';
+      flushPins(true);document.getElementById('globe-count').textContent=COUNTRIES_DATA.length+' countries';
 
     } else if(mode==='telecom'){
       const rows=await fetch('/api/telecom').then(r=>r.json());
@@ -748,7 +776,7 @@ async function loadGlobeFor(mode){
         const scale=0.008+0.014*(r.subscribers_millions||0)/maxSubs;
         addPin(r.lat,r.lng,0x00e5cc,scale,r.name,r.country+' · '+r.subscribers_millions+'M subs');
       });
-      document.getElementById('globe-count').textContent=rows.length+' carriers';
+      flushPins(true);document.getElementById('globe-count').textContent=rows.length+' carriers';
 
     } else if(mode==='universities'){
       const rows=await fetch('/api/universities').then(r=>r.json());
@@ -756,11 +784,11 @@ async function loadGlobeFor(mode){
         const scale=0.009+0.006*(1-(r.rank-1)/99);
         addPin(r.lat,r.lng,0x9966ff,scale,r.name,'#'+r.rank+' · '+r.city+', '+r.country+(r.founded?' · Est. '+r.founded:''));
       });
-      document.getElementById('globe-count').textContent=rows.length+' universities';
+      flushPins(true);document.getElementById('globe-count').textContent=rows.length+' universities';
 
     } else if(mode==='custom'){
       customPins.forEach((p,i)=>addPin(p.lat,p.lng,0xff00ff,.012,p.name,p.desc));
-      document.getElementById('globe-count').textContent=customPins.length+' pins';
+      flushPins(true);document.getElementById('globe-count').textContent=customPins.length+' pins';
 
     } else {
       // globe, visitors — show visitor cities
@@ -770,9 +798,9 @@ async function loadGlobeFor(mode){
         const scale=0.008+0.016*Math.min(visits/maxV,1);
         addPin(lat,lng,0x00dcff,scale,city,country+' · '+visits.toLocaleString()+' visits');
       });
-      document.getElementById('globe-count').textContent=cities.length+' cities';
+      flushPins(true);document.getElementById('globe-count').textContent=cities.length+' cities';
     }
-  } catch(e){ document.getElementById('globe-count').textContent='error'; }
+  } catch(e){ flushPins(true);document.getElementById('globe-count').textContent='error'; }
 
   document.getElementById('globe-loading').classList.remove('show');
 }
@@ -1330,6 +1358,17 @@ TOP PAGES: ${topPaths}`;
   return visitorCtx;
 }
 
+// Detect local mode and wire up API key config panel
+const _isLocal = (location.hostname === 'localhost' || location.hostname === '127.0.0.1');
+if (_isLocal) {
+  const cfg = document.getElementById('claude-local-cfg');
+  if (cfg) cfg.style.display = 'block';
+  const keyInp = document.getElementById('claude-apikey');
+  if (keyInp) keyInp.value = localStorage.getItem('gm_apikey') || '';
+  const badge = document.getElementById('claude-mode-badge');
+  if (badge) badge.textContent = 'LOCAL · /api/claude';
+}
+
 async function sendClaude() {
   const inp = document.getElementById('claude-input');
   const msg = inp.value.trim();
@@ -1343,12 +1382,17 @@ async function sendClaude() {
   document.getElementById('claude-msgs').appendChild(thinking);
   try {
     const history = claudeMsgs.slice(-10).map(m=>({role:m.role==='user'?'user':'assistant',content:m.text}));
-    const r = await fetch('https://claudeamour.us/claude/chat',{
+    const isLocal = (location.hostname === 'localhost' || location.hostname === '127.0.0.1');
+    const endpoint = isLocal ? '/api/claude' : 'https://claudeamour.us/claude/chat';
+    const localKey = localStorage.getItem('gm_apikey') || '';
+    const reqHeaders = {'Content-Type':'application/json'};
+    if (isLocal && localKey) reqHeaders['X-Api-Key'] = localKey;
+    const r = await fetch(endpoint,{
       method:'POST',
-      headers:{'Content-Type':'application/json'},
+      headers: reqHeaders,
       body:JSON.stringify({
         message: msg,
-        system: 'You are an intelligence analyst for a geospatial operations dashboard (nsa.je9.us). You have access to data on US military bases, embassies, elite military units, world airports, Fortune 250 corporations, top 100 banks, cloud data centers, defense contractors, oil refineries, and top 100 universities. Answer concisely and analytically.\n\n' + await loadVisitorCtx(),
+        system: 'You are an intelligence analyst for a geospatial operations dashboard. You have access to data on US military bases, embassies, elite military units, world airports, Fortune 250 corporations, top 100 banks, cloud data centers, defense contractors, oil refineries, and top 100 universities. Answer concisely and analytically.\n\n' + await loadVisitorCtx(),
         history: history.slice(0,-1)
       })
     });
