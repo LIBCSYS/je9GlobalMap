@@ -554,11 +554,15 @@ scene.add(new THREE.Points(sg,new THREE.PointsMaterial({color:0x88ccee,size:.035
 
 // Marker group — gets cleared on mode switch
 const markerGroup=new THREE.Group();
+const labelGroup=new THREE.Group(); // child of markerGroup, zoom-toggled
+markerGroup.add(labelGroup);
 globeGroup.add(markerGroup);
 
 let _pinPos=[],_pinCol=[],_pinMeta=[];
 function clearMarkers(){
   while(markerGroup.children.length) markerGroup.remove(markerGroup.children[0]);
+  markerGroup.add(labelGroup);
+  while(labelGroup.children.length) labelGroup.remove(labelGroup.children[0]);
   _pinPos=[]; _pinCol=[]; _pinMeta=[];
 }
 
@@ -595,7 +599,7 @@ function flushPins(showLabels){
   if(showLabels && _pinMeta.length<=300){
     _pinMeta.forEach(({x,y,z,line1,line2})=>{
       const lbl=makeSprite(line1,line2);
-      lbl.position.set(x*1.15,y*1.15+.06,z*1.15); markerGroup.add(lbl);
+      lbl.position.set(x*1.15,y*1.15+.06,z*1.15); labelGroup.add(lbl);
     });
   }
   _pinPos=[]; _pinCol=[]; _pinMeta=[];
@@ -631,6 +635,8 @@ function animate(){
   highlightGroup.children.forEach(c=>{const s=1+0.35*Math.sin(hlPulse);c.scale.set(s,s,s);});
   const t=Date.now();
   atmo.material.opacity=0.010+0.009*Math.sin(t*0.0007)+0.003*Math.sin(t*0.0029);
+  // Labels fade in when zoomed in, hidden when far out
+  labelGroup.visible = camera.position.z < 2.1;
   renderer.render(scene,camera);
 }
 animate();
