@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1.0">
-<title>NSA JE9 — Secure Access</title>
+<title>GlobalMap — Screen Saver</title>
 <style>
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
 html,body{cursor:none;height:100%;background:#020810;overflow:hidden;font-family:'Courier New',monospace;color:#c8e0f0;}
@@ -26,14 +26,14 @@ canvas#globe{display:block;position:fixed;inset:0;width:100%;height:100%;z-index
 <div class="scanline"></div>
 <div class="overlay">
   <div class="nsa-seal">⬡</div>
-  <div class="nsa-title">NSA · JE9</div>
-  <div class="nsa-sub">Global Intelligence Operations</div>
+  <div class="nsa-title">GlobalMap</div>
+  <div class="nsa-sub">Interactive Geospatial Dashboard</div>
   <div class="zulu-label">ZULU TIME</div>
   <div class="zulu-time" id="zulu-time">--:--:--Z</div>
   <div class="zulu-date" id="zulu-date">---- -- --</div>
   
 </div>
-<div class="classified-strip">TOP SECRET // NOFORN // ORCON — AUTHORIZED ACCESS ONLY — je9.us</div>
+<div class="classified-strip">GlobalMap v1.00.01 — github.com/LIBCSYS/je9GlobalMap</div>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js?v=2"></script>
 <script>
 function tick(){
@@ -102,17 +102,29 @@ function makeLabel(text){
   globeGroup.add(lbl);
 });
 
-// Stars stay in scene (don't spin)
+// Stars (base field)
 const sv=[];
-for(let i=0;i<1400;i++){const t=Math.random()*Math.PI*2,p=Math.acos(2*Math.random()-1),r=8+Math.random()*14;sv.push(r*Math.sin(p)*Math.cos(t),r*Math.cos(p),r*Math.sin(p)*Math.sin(t));}
+for(let i=0;i<1000;i++){const t=Math.random()*Math.PI*2,p=Math.acos(2*Math.random()-1),r=8+Math.random()*14;sv.push(r*Math.sin(p)*Math.cos(t),r*Math.cos(p),r*Math.sin(p)*Math.sin(t));}
 const sg=new THREE.BufferGeometry();sg.setAttribute('position',new THREE.Float32BufferAttribute(sv,3));
-scene.add(new THREE.Points(sg,new THREE.PointsMaterial({color:0x88ccee,size:.035,transparent:true,opacity:.65})));
+scene.add(new THREE.Points(sg,new THREE.PointsMaterial({color:0x88ccee,size:.035,transparent:true,opacity:.55})));
+
+// Sparkle layers
+const sparkleLayers=[];
+[[180,0x99ddff,.038],[150,0xaaffee,.044],[110,0xffffff,.026]].forEach(([count,col,sz],gi)=>{
+  const pos=[];
+  for(let i=0;i<count;i++){const t=Math.random()*Math.PI*2,p=Math.acos(2*Math.random()-1),r=8+Math.random()*14;pos.push(r*Math.sin(p)*Math.cos(t),r*Math.cos(p),r*Math.sin(p)*Math.sin(t));}
+  const geo=new THREE.BufferGeometry();geo.setAttribute('position',new THREE.Float32BufferAttribute(pos,3));
+  const mat=new THREE.PointsMaterial({color:col,size:sz,transparent:true,opacity:.08});
+  scene.add(new THREE.Points(geo,mat));
+  sparkleLayers.push({mat,phase:gi*2.09,freq:.00055+gi*.00031});
+});
 
 function animate(){
   requestAnimationFrame(animate);
   globeGroup.rotation.y+=.0009;
   const t=Date.now();
   atmo.material.opacity=0.010+0.009*Math.sin(t*0.0007)+0.003*Math.sin(t*0.0029);
+  sparkleLayers.forEach(s=>{s.mat.opacity=0.04+0.38*Math.pow(Math.abs(Math.sin(t*s.freq+s.phase)),2.5);});
   renderer.render(scene,camera);
 }
 animate();
