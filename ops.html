@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1.0">
-<title>GlobalMap v1.00.01</title>
+<title>GlobalMap v1.00.02</title>
 <style>
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
 :root{--bg:#050a0f;--panel:#0a1420;--border:#1a3a5c;--accent:#00ff88;--red:#ff3344;--yellow:#ffcc00;--blue:#00aaff;--cyan:#00dcff;--orange:#ff6600;--text:#c8e0f0;--muted:#4a7a9b;--font:'Courier New',monospace;}
@@ -130,17 +130,19 @@ textarea.fi{resize:vertical;min-height:50px;}
 <div class="scanline"></div>
 
 <div class="topbar">
-  <a href="/" class="logo">
-    <span style="font-size:1.6rem;vertical-align:middle;margin-right:8px;line-height:1">🌍</span>
-    <span style="letter-spacing:.12em">GLOBALMAP</span><span style="font-size:.55rem;color:var(--muted);letter-spacing:.08em;margin-left:8px;vertical-align:middle">v1.00.01</span>
-  </a>
-  <div class="topbar-right">
-    <div style="display:flex;align-items:center;gap:5px;margin-right:8px">
+  <div style="display:flex;align-items:center">
+    <a href="/" class="logo">
+      <span style="font-size:1.6rem;vertical-align:middle;margin-right:8px;line-height:1">🌍</span>
+      <span style="letter-spacing:.12em">GLOBALMAP</span><span style="font-size:.55rem;color:var(--muted);letter-spacing:.08em;margin-left:8px;vertical-align:middle">v1.00.02</span>
+    </a>
+    <div style="display:flex;align-items:center;gap:5px;border-left:1px solid var(--border);margin-left:16px;padding-left:16px">
       <span style="font-size:9px;color:var(--muted);letter-spacing:.08em;font-family:var(--font);white-space:nowrap">LABELS</span>
       <input type="range" id="label-density" min="0" max="100" value="70"
         style="width:64px;accent-color:var(--accent);cursor:pointer;vertical-align:middle"
         oninput="renderLabels()">
     </div>
+  </div>
+  <div class="topbar-right">
     <span class="classified">TOP SECRET // NOFORN</span>
     <span class="dot"></span>
     <span class="zulu-top" id="zulu-top">--:--:--Z</span>

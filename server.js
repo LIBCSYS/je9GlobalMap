@@ -1,4 +1,4 @@
-// GlobalMap v1.00.01 — local dev server
+// GlobalMap v1.00.02 — local dev server
 // Homage to 2600.com
 // Usage: node server.js
 // Usage with Claude AI: ANTHROPIC_API_KEY=sk-ant-... node server.js
@@ -179,7 +179,7 @@ server.listen(PORT, () => {
   console.log(`  ██║   ██║██║     ██║   ██║██╔══██╗██╔══██║██║     ██║╚██╔╝██║██╔══██║██╔═══╝ `);
   console.log(`  ╚██████╔╝███████╗╚██████╔╝██████╔╝██║  ██║███████╗██║ ╚═╝ ██║██║  ██║██║     `);
   console.log(`   ╚═════╝ ╚══════╝ ╚═════╝ ╚═════╝ ╚═╝  ╚═╝╚══════╝╚═╝     ╚═╝╚═╝  ╚═╝╚═╝     `);
-  console.log(`\n  v1.00.01 — ${PORT} — homage to 2600.com`);
+  console.log(`\n  v1.00.02 — ${PORT} — homage to 2600.com`);
   console.log(`\n  194 airports · 250 corps · 100 banks · 241 bases · 26 elite units`);
   console.log(`  83 data centers · 60 defense contractors · 100 universities · 65 telecoms`);
   console.log(`\n  Open: \x1b[36mhttp://localhost:${PORT}\x1b[0m\n`);

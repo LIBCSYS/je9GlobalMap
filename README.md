@@ -1,4 +1,4 @@
-# GlobalMap v1.00.01
+# GlobalMap v1.00.02
 
 A geospatial intelligence dashboard — interactive Three.js globe with real-world datasets.
 
