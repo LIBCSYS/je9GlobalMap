@@ -2,7 +2,7 @@
 
 A geospatial intelligence dashboard — interactive Three.js globe with real-world datasets.
 
-![GlobalMap](https://world.je9.us/og.png)
+**[Live Demo → world.je9.us](https://world.je9.us)**
 
 ## Features
 
