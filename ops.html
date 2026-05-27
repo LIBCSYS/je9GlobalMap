@@ -583,12 +583,16 @@ function makeSprite(line1,line2,color){
   const s=new THREE.Sprite(mat); s.scale.set(.5,.11,1); return s;
 }
 
+const LABEL_MIN_DIST_SQ = 0.015; // ~7° arc separation
 function addPin(lat,lng,color,size,line1,line2){
   if(lat==null||lng==null||isNaN(lat)||isNaN(lng)) return;
   const {x,y,z}=latLngToVec(lat,lng);
   _pinPos.push(x,y,z);
   _pinCol.push(((color>>16)&255)/255,((color>>8)&255)/255,(color&255)/255);
-  if(line1) _pinMeta.push({x,y,z,line1,line2});
+  if(line1){
+    const tooClose=_pinMeta.some(m=>{const dx=m.x-x,dy=m.y-y,dz=m.z-z;return dx*dx+dy*dy+dz*dz<LABEL_MIN_DIST_SQ;});
+    if(!tooClose) _pinMeta.push({x,y,z,line1,line2});
+  }
 }
 function flushPins(showLabels){
   if(!_pinPos.length) return;
