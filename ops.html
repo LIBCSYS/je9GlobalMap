@@ -135,6 +135,12 @@ textarea.fi{resize:vertical;min-height:50px;}
     <span style="letter-spacing:.12em">GLOBALMAP</span><span style="font-size:.55rem;color:var(--muted);letter-spacing:.08em;margin-left:8px;vertical-align:middle">v1.00.01</span>
   </a>
   <div class="topbar-right">
+    <div style="display:flex;align-items:center;gap:5px;margin-right:8px">
+      <span style="font-size:9px;color:var(--muted);letter-spacing:.08em;font-family:var(--font);white-space:nowrap">LABELS</span>
+      <input type="range" id="label-density" min="0" max="100" value="70"
+        style="width:64px;accent-color:var(--accent);cursor:pointer;vertical-align:middle"
+        oninput="renderLabels()">
+    </div>
     <span class="classified">TOP SECRET // NOFORN</span>
     <span class="dot"></span>
     <span class="zulu-top" id="zulu-top">--:--:--Z</span>
@@ -563,7 +569,7 @@ function clearMarkers(){
   while(markerGroup.children.length) markerGroup.remove(markerGroup.children[0]);
   markerGroup.add(labelGroup);
   while(labelGroup.children.length) labelGroup.remove(labelGroup.children[0]);
-  _pinPos=[]; _pinCol=[]; _pinMeta=[];
+  _pinPos=[]; _pinCol=[]; _pinMeta=[]; _allPinMeta=[];
 }
 
 function latLngToVec(lat,lng){
@@ -583,16 +589,30 @@ function makeSprite(line1,line2,color){
   const s=new THREE.Sprite(mat); s.scale.set(.5,.11,1); return s;
 }
 
-const LABEL_MIN_DIST_SQ = 0.015; // ~7° arc separation
+let _allPinMeta=[];
 function addPin(lat,lng,color,size,line1,line2){
   if(lat==null||lng==null||isNaN(lat)||isNaN(lng)) return;
   const {x,y,z}=latLngToVec(lat,lng);
   _pinPos.push(x,y,z);
   _pinCol.push(((color>>16)&255)/255,((color>>8)&255)/255,(color&255)/255);
-  if(line1){
-    const tooClose=_pinMeta.some(m=>{const dx=m.x-x,dy=m.y-y,dz=m.z-z;return dx*dx+dy*dy+dz*dz<LABEL_MIN_DIST_SQ;});
-    if(!tooClose) _pinMeta.push({x,y,z,line1,line2});
-  }
+  if(line1) _allPinMeta.push({x,y,z,line1,line2});
+}
+function renderLabels(){
+  while(labelGroup.children.length) labelGroup.remove(labelGroup.children[0]);
+  if(!_allPinMeta.length) return;
+  const v=parseInt(document.getElementById('label-density')?.value??70);
+  const thresh=(100-v)/100*0.15; // slider 100=all, 0=very sparse
+  const accepted=[];
+  _allPinMeta.forEach(({x,y,z,line1,line2})=>{
+    if(thresh>0){
+      const close=accepted.some(m=>{const dx=m.x-x,dy=m.y-y,dz=m.z-z;return dx*dx+dy*dy+dz*dz<thresh;});
+      if(close) return;
+    }
+    accepted.push({x,y,z});
+    const lbl=makeSprite(line1,line2);
+    lbl.position.set(x*1.15,y*1.15+.06,z*1.15);
+    labelGroup.add(lbl);
+  });
 }
 function flushPins(showLabels){
   if(!_pinPos.length) return;
@@ -600,12 +620,7 @@ function flushPins(showLabels){
   geo.setAttribute('position',new THREE.Float32BufferAttribute(_pinPos,3));
   geo.setAttribute('color',new THREE.Float32BufferAttribute(_pinCol,3));
   markerGroup.add(new THREE.Points(geo,new THREE.PointsMaterial({size:.025,vertexColors:true,sizeAttenuation:true,transparent:true,opacity:.95})));
-  if(showLabels && _pinMeta.length<=500){
-    _pinMeta.forEach(({x,y,z,line1,line2})=>{
-      const lbl=makeSprite(line1,line2);
-      lbl.position.set(x*1.15,y*1.15+.06,z*1.15); labelGroup.add(lbl);
-    });
-  }
+  if(showLabels) renderLabels();
   _pinPos=[]; _pinCol=[]; _pinMeta=[];
 }
 
