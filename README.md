@@ -16,8 +16,8 @@ A geospatial intelligence dashboard — interactive Three.js globe with real-wor
 ## Run Locally
 
 ```bash
-git clone https://github.com/LIBCSYS/je9WorldMap.git
-cd je9WorldMap
+git clone https://github.com/LIBCSYS/je9GlobalMap.git
+cd je9GlobalMap
 node server.js
 ```
 
