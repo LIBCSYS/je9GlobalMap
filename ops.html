@@ -591,8 +591,8 @@ function flushPins(showLabels){
   const geo=new THREE.BufferGeometry();
   geo.setAttribute('position',new THREE.Float32BufferAttribute(_pinPos,3));
   geo.setAttribute('color',new THREE.Float32BufferAttribute(_pinCol,3));
-  markerGroup.add(new THREE.Points(geo,new THREE.PointsMaterial({size:.022,vertexColors:true,sizeAttenuation:true,transparent:true,opacity:.92})));
-  if(showLabels && _pinMeta.length<=60){
+  markerGroup.add(new THREE.Points(geo,new THREE.PointsMaterial({size:.025,vertexColors:true,sizeAttenuation:true,transparent:true,opacity:.95})));
+  if(showLabels && _pinMeta.length<=300){
     _pinMeta.forEach(({x,y,z,line1,line2})=>{
       const lbl=makeSprite(line1,line2);
       lbl.position.set(x*1.15,y*1.15+.06,z*1.15); markerGroup.add(lbl);
