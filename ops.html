@@ -583,12 +583,16 @@ function makeSprite(line1,line2,color){
   const s=new THREE.Sprite(mat); s.scale.set(.5,.11,1); return s;
 }
 
+const LABEL_MIN_DIST_SQ = 0.05; // ~13° arc separation — prevents label pile-ups
 function addPin(lat,lng,color,size,line1,line2){
   if(lat==null||lng==null||isNaN(lat)||isNaN(lng)) return;
   const {x,y,z}=latLngToVec(lat,lng);
   _pinPos.push(x,y,z);
   _pinCol.push(((color>>16)&255)/255,((color>>8)&255)/255,(color&255)/255);
-  if(line1) _pinMeta.push({x,y,z,line1,line2});
+  if(line1){
+    const tooClose=_pinMeta.some(m=>{const dx=m.x-x,dy=m.y-y,dz=m.z-z;return dx*dx+dy*dy+dz*dz<LABEL_MIN_DIST_SQ;});
+    if(!tooClose) _pinMeta.push({x,y,z,line1,line2});
+  }
 }
 function flushPins(showLabels){
   if(!_pinPos.length) return;
@@ -596,7 +600,7 @@ function flushPins(showLabels){
   geo.setAttribute('position',new THREE.Float32BufferAttribute(_pinPos,3));
   geo.setAttribute('color',new THREE.Float32BufferAttribute(_pinCol,3));
   markerGroup.add(new THREE.Points(geo,new THREE.PointsMaterial({size:.025,vertexColors:true,sizeAttenuation:true,transparent:true,opacity:.95})));
-  if(showLabels && _pinMeta.length<=300){
+  if(showLabels && _pinMeta.length<=500){
     _pinMeta.forEach(({x,y,z,line1,line2})=>{
       const lbl=makeSprite(line1,line2);
       lbl.position.set(x*1.15,y*1.15+.06,z*1.15); labelGroup.add(lbl);
@@ -635,8 +639,6 @@ function animate(){
   highlightGroup.children.forEach(c=>{const s=1+0.35*Math.sin(hlPulse);c.scale.set(s,s,s);});
   const t=Date.now();
   atmo.material.opacity=0.010+0.009*Math.sin(t*0.0007)+0.003*Math.sin(t*0.0029);
-  // Labels fade in when zoomed in, hidden when far out
-  labelGroup.visible = camera.position.z < 2.1;
   renderer.render(scene,camera);
 }
 animate();
