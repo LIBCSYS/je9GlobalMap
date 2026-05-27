@@ -1,0 +1,1440 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>GlobalMap v1.00.01</title>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{--bg:#050a0f;--panel:#0a1420;--border:#1a3a5c;--accent:#00ff88;--red:#ff3344;--yellow:#ffcc00;--blue:#00aaff;--cyan:#00dcff;--orange:#ff6600;--text:#c8e0f0;--muted:#4a7a9b;--font:'Courier New',monospace;}
+body{background:var(--bg);color:var(--text);font-family:var(--font);font-size:13px;height:100vh;overflow:hidden;display:flex;flex-direction:column;}
+
+/* TOPBAR */
+.topbar{background:var(--panel);border-bottom:1px solid var(--border);padding:0 20px;display:flex;align-items:center;justify-content:space-between;height:44px;flex-shrink:0;}
+.logo{color:var(--accent);font-size:1rem;font-weight:700;letter-spacing:.15em;text-decoration:none;}
+.logo span{color:var(--red);}
+.topbar-right{display:flex;gap:16px;align-items:center;}
+.dot{display:inline-block;width:7px;height:7px;border-radius:50%;background:var(--accent);box-shadow:0 0 6px var(--accent);animation:pulse 1.5s infinite;}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.3}}
+.zulu-top{color:var(--accent);font-size:.8rem;font-variant-numeric:tabular-nums;}
+.classified{color:var(--red);font-size:10px;letter-spacing:.15em;font-weight:700;}
+.back-link{color:var(--muted);font-size:11px;text-decoration:none;letter-spacing:.08em;}
+.back-link:hover{color:var(--accent);}
+
+/* CLOCKS */
+.clocks{background:#020810;border-bottom:1px solid var(--border);display:flex;overflow-x:auto;height:52px;align-items:center;flex-shrink:0;}
+.clock-cell{min-width:96px;padding:0 12px;border-right:1px solid var(--border);text-align:center;flex-shrink:0;}
+.cz{font-size:10px;color:var(--muted);letter-spacing:.1em;text-transform:uppercase;}
+.ct{font-size:.95rem;color:var(--accent);font-weight:700;font-variant-numeric:tabular-nums;}
+.cc{font-size:10px;color:var(--text);}
+
+/* MAIN SHELL: sidebar | globe | panel */
+.shell{display:grid;grid-template-columns:190px 1fr 340px;flex:1;overflow:hidden;min-height:0;}
+
+/* SIDEBAR */
+.sidebar{background:var(--panel);border-right:1px solid var(--border);overflow-y:auto;display:flex;flex-direction:column;}
+.nav-sec{padding:7px 10px 3px;font-size:10px;color:#5a9abf;letter-spacing:.12em;text-transform:uppercase;margin-top:4px;border-top:1px solid var(--border);}
+.nav-sec:first-child{border-top:none;}
+.nav-item{display:flex;align-items:center;justify-content:space-between;padding:7px 10px;color:#8ab8d4;cursor:pointer;border-left:3px solid transparent;font-size:12px;line-height:1.3;transition:all .12s;user-select:none;font-family:"Apple Color Emoji","Segoe UI Emoji","Noto Color Emoji","Courier New",monospace;}
+.nav-item:hover{background:rgba(0,255,136,.05);border-left-color:rgba(0,255,136,.4);color:#b0d8f0;}
+.tbl-wrap tr[data-lat]{cursor:pointer;transition:background .1s;}
+.tbl-wrap tr[data-lat]:hover{background:rgba(0,255,136,.06);}
+.tbl-wrap tr.pin-focused{background:rgba(255,255,255,.1)!important;outline:1px solid rgba(255,255,136,.6);}
+.nav-item.active{background:rgba(0,255,136,.1);border-left-color:var(--accent);color:var(--accent);font-weight:700;}
+.badge{background:rgba(0,220,255,.25);color:#00dcff;border:1px solid rgba(0,220,255,.5);font-size:10px;font-weight:700;padding:2px 7px;border-radius:8px;min-width:22px;text-align:center;}
+.globe-mode-label{padding:10px 14px 6px;margin-top:auto;font-size:10px;color:var(--muted);letter-spacing:.08em;border-top:1px solid var(--border);}
+.mode-indicator{font-size:11px;color:var(--accent);margin-top:3px;}
+
+/* GLOBE */
+.globe-wrap{position:relative;overflow:hidden;background:#020810;}
+canvas#globe{display:block;width:100%;height:100%;}
+.globe-overlay{position:absolute;bottom:14px;left:14px;pointer-events:none;}
+.globe-mode-tag{font-size:10px;color:var(--muted);letter-spacing:.1em;text-transform:uppercase;}
+.globe-mode-val{font-size:1rem;color:var(--accent);font-weight:700;text-shadow:0 0 10px var(--accent);margin-top:2px;}
+.globe-loading{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);color:var(--muted);font-size:10px;letter-spacing:.15em;pointer-events:none;display:none;}
+.globe-loading.show{display:block;}
+
+/* RIGHT PANEL */
+.right-panel{background:var(--panel);border-left:1px solid var(--border);overflow:hidden;display:flex;flex-direction:column;}
+.rp-section{display:none;flex:1;overflow-y:auto;flex-direction:column;}
+.rp-section.active{display:flex;}
+.rp-header{padding:12px 14px 8px;border-bottom:1px solid var(--border);flex-shrink:0;}
+.rp-title{font-size:.8rem;color:var(--accent);letter-spacing:.12em;text-transform:uppercase;font-weight:700;}
+.rp-sub{font-size:10px;color:var(--muted);margin-top:3px;letter-spacing:.05em;}
+.rp-body{padding:12px 14px;flex:1;overflow-y:auto;}
+
+/* STAT CARDS */
+.stat-grid{display:grid;grid-template-columns:1fr 1fr;gap:7px;margin-bottom:12px;}
+.stat-card{background:#020810;border:1px solid var(--border);border-radius:5px;padding:9px 10px;position:relative;overflow:hidden;}
+.stat-card::before{content:'';position:absolute;top:0;left:0;right:0;height:2px;background:var(--accent);}
+.stat-lbl{font-size:10px;color:var(--muted);letter-spacing:.06em;text-transform:uppercase;}
+.stat-val{font-size:1.3rem;color:var(--accent);font-weight:700;line-height:1.1;}
+.stat-sub{font-size:9px;color:var(--muted);}
+
+/* MISSION CARDS */
+.mission-card{background:#020810;border:1px solid var(--border);border-radius:5px;padding:9px;margin-bottom:7px;}
+.mission-card.ACTIVE{border-color:var(--accent);}
+.mission-card.CRITICAL{border-color:var(--red);}
+.ms-status{font-size:10px;font-weight:700;letter-spacing:.08em;padding:2px 7px;border-radius:3px;display:inline-block;margin-bottom:5px;}
+.st-PENDING{background:rgba(255,204,0,.15);color:var(--yellow);}
+.st-ACTIVE{background:rgba(0,255,136,.15);color:var(--accent);}
+.st-CRITICAL{background:rgba(255,51,68,.2);color:var(--red);}
+.st-COMPLETE{background:rgba(74,122,155,.2);color:var(--muted);}
+.ms-title{font-size:.82rem;font-weight:700;margin-bottom:3px;}
+.ms-meta{font-size:11px;color:var(--muted);line-height:1.6;}
+
+/* TABLES */
+.filter-bar{display:flex;gap:5px;margin-bottom:8px;flex-wrap:wrap;}
+input[type=text],select{background:#020810;border:1px solid var(--border);color:var(--text);padding:4px 7px;border-radius:3px;font-family:var(--font);font-size:11px;outline:none;width:100%;}
+input[type=text]:focus,select:focus{border-color:var(--accent);}
+.btn{padding:4px 10px;border:1px solid var(--border);border-radius:3px;background:transparent;color:var(--text);font-family:var(--font);font-size:11px;cursor:pointer;white-space:nowrap;}
+.btn:hover,.btn.primary{background:var(--accent);color:#000;border-color:var(--accent);font-weight:700;}
+.tbl-wrap{background:#020810;border:1px solid var(--border);border-radius:5px;overflow:auto;max-height:calc(100vh - 260px);}
+table{width:100%;border-collapse:collapse;}
+th{background:rgba(0,255,136,.04);padding:8px 9px;text-align:left;font-size:10px;color:var(--muted);letter-spacing:.08em;text-transform:uppercase;border-bottom:1px solid var(--border);white-space:nowrap;position:sticky;top:0;}
+td{padding:8px 9px;border-bottom:1px solid rgba(26,58,92,.4);font-size:11px;vertical-align:top;}
+tr:last-child td{border-bottom:none;}
+tr:hover td{background:rgba(0,255,136,.025);}
+.tag{display:inline-block;padding:2px 6px;border-radius:3px;font-size:10px;font-weight:700;}
+.tag-country{background:rgba(0,170,255,.15);color:var(--blue);}
+.tag-branch{background:rgba(0,255,136,.12);color:var(--accent);}
+.tag-type{background:rgba(255,51,68,.15);color:var(--red);}
+a.geo{color:var(--blue);text-decoration:none;font-size:10px;}
+.sec-hdr{display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;}
+.sec-title{font-size:.8rem;color:var(--accent);letter-spacing:.08em;text-transform:uppercase;}
+
+/* VISITOR TABLE */
+.v-row{border-bottom:1px solid rgba(26,58,92,.3);padding:7px 0;font-size:11px;}
+.v-row:last-child{border-bottom:none;}
+.v-ip{color:var(--accent);font-size:11px;}
+.v-loc{color:var(--text);font-size:11px;}
+.v-meta{color:var(--muted);font-size:10px;margin-top:2px;}
+
+/* MODAL */
+.modal-bg{display:none;position:fixed;inset:0;background:rgba(0,0,0,.75);z-index:200;align-items:center;justify-content:center;}
+.modal-bg.open{display:flex;}
+.modal{background:var(--panel);border:1px solid var(--border);border-radius:8px;padding:20px;width:440px;max-width:95vw;max-height:90vh;overflow-y:auto;}
+.modal h2{color:var(--accent);font-size:.8rem;letter-spacing:.1em;text-transform:uppercase;margin-bottom:14px;}
+.frow{display:grid;grid-template-columns:1fr 1fr;gap:7px;margin-bottom:7px;}
+.frow.full{grid-template-columns:1fr;}
+label{font-size:9px;color:var(--muted);letter-spacing:.06em;text-transform:uppercase;display:block;margin-bottom:2px;}
+.fi{width:100%;background:#020810;border:1px solid var(--border);color:var(--text);padding:5px 7px;border-radius:3px;font-family:var(--font);font-size:11px;outline:none;}
+.fi:focus{border-color:var(--accent);}
+textarea.fi{resize:vertical;min-height:50px;}
+.mact{display:flex;gap:8px;justify-content:flex-end;margin-top:12px;}
+
+.scanline{position:fixed;inset:0;z-index:1;background:repeating-linear-gradient(0deg,transparent,transparent 2px,rgba(0,0,0,.025) 2px,rgba(0,0,0,.025) 4px);pointer-events:none;}
+</style>
+</head>
+<body>
+<div class="scanline"></div>
+
+<div class="topbar">
+  <a href="/" class="logo">
+    <span style="font-size:1.6rem;vertical-align:middle;margin-right:8px;line-height:1">🌍</span>
+    <span style="letter-spacing:.12em">GLOBALMAP</span><span style="font-size:.55rem;color:var(--muted);letter-spacing:.08em;margin-left:8px;vertical-align:middle">v1.00.01</span>
+  </a>
+  <div class="topbar-right">
+    <span class="classified">TOP SECRET // NOFORN</span>
+    <span class="dot"></span>
+    <span class="zulu-top" id="zulu-top">--:--:--Z</span>
+    <a href="index.html" class="back-link">← LANDING</a>
+  </div>
+</div>
+
+<div class="clocks" id="clocks"></div>
+
+<div class="shell">
+
+  <!-- SIDEBAR -->
+  <div class="sidebar">
+    <div class="nav-item active" onclick="switchMode('globe',this)">🌐 Globe</div>
+    <div class="nav-sec">Intelligence</div>
+    <div class="nav-item" onclick="switchMode('installations',this)">◉ Bases <span class="badge" id="b-inst">0</span></div>
+    <div class="nav-item" onclick="switchMode('embassies',this)">🏛 Embassies <span class="badge" id="b-emb">0</span></div>
+    <div class="nav-item" onclick="switchMode('units',this)">◈ Elite Units <span class="badge" id="b-units">0</span></div>
+    <div class="nav-sec">Global</div>
+    <div class="nav-item" onclick="switchMode('airports',this)">✈ Airports <span class="badge" id="b-airports">0</span></div>
+    <div class="nav-item" onclick="switchMode('corps',this)">🏢 Corps <span class="badge" id="b-corps">0</span></div>
+    <div class="nav-item" onclick="switchMode('banks',this)">🏦 Banks <span class="badge" id="b-banks">0</span></div>
+    <div class="nav-item" onclick="switchMode('datacenters',this)">🖥 Data Ctrs <span class="badge" id="b-dc">0</span></div>
+    <div class="nav-item" onclick="switchMode('defense',this)">⚔ Defense <span class="badge" id="b-defense">0</span></div>
+    <div class="nav-item" onclick="switchMode('refineries',this)">🛢 Refineries <span class="badge" id="b-ref">0</span></div>
+    <div class="nav-item" onclick="switchMode('universities',this)">🎓 Universities <span class="badge" id="b-uni">0</span></div>
+    <div class="nav-item" onclick="switchMode('telecom',this)">📡 Telecom <span class="badge" id="b-telecom">0</span></div>
+    <div class="nav-item" onclick="switchMode('countries',this)">🌐 Countries <span class="badge" id="b-countries">0</span></div>
+    <div class="nav-sec">Surveillance</div>
+    <div class="nav-item" onclick="switchMode('visitors',this)">⬡ Visitors <span class="badge" id="b-visits">0</span></div>
+    <div class="nav-sec">Tools</div>
+    <div class="nav-item" onclick="switchMode('custom',this)">📍 CSV Import</div>
+    <div class="nav-item" onclick="switchMode('askclaude',this)">🤖 Ask Claude</div>
+    <div class="globe-mode-label">GLOBE MODE<div class="mode-indicator" id="mode-indicator">VISITOR CITIES</div></div>
+  </div>
+
+  <!-- GLOBE (always visible) -->
+  <div class="globe-wrap">
+    <canvas id="globe"></canvas>
+    <div class="globe-loading" id="globe-loading">LOADING INTEL...</div>
+    <div class="globe-overlay">
+      <div class="globe-mode-tag">TRACKING</div>
+      <div class="globe-mode-val" id="globe-count">—</div>
+    </div>
+  </div>
+
+  <!-- RIGHT PANEL -->
+  <div class="right-panel">
+
+    <!-- GLOBE: overview stats -->
+    <div class="rp-section active" id="rp-globe">
+      <div class="rp-header"><div class="rp-title">🌐 Network Overview</div><div class="rp-sub">Live visitor intelligence across all 30 sites</div></div>
+      <div class="rp-body">
+        <div class="stat-grid" id="stat-grid"></div>
+        <div style="font-size:9px;color:var(--muted);letter-spacing:.1em;text-transform:uppercase;margin-bottom:8px;padding-bottom:5px;border-bottom:1px solid var(--border)">Active Operations</div>
+        <div id="active-missions"></div>
+      </div>
+    </div>
+
+    <!-- INSTALLATIONS -->
+    <div class="rp-section" id="rp-installations">
+      <div class="rp-header">
+        <div style="display:flex;align-items:center;justify-content:space-between">
+          <div><div class="rp-title">◉ Installations</div><div class="rp-sub">Global military bases</div></div>
+          <button class="btn primary" onclick="openModal('modal-install')">+ Add</button>
+        </div>
+      </div>
+      <div class="rp-body">
+        <div class="filter-bar">
+          <input type="text" id="inst-q" placeholder="Search..." oninput="loadInst()" style="flex:1;width:auto">
+          <select id="inst-country" onchange="loadInst()" style="width:auto"><option value="">All Countries</option></select>
+          <select id="inst-branch" onchange="loadInst()" style="width:auto">
+            <option value="">All Branches</option>
+            <option>Army</option><option>Navy</option><option>Air Force</option>
+            <option>Marines</option><option>Space Force</option><option>Coast Guard</option>
+          </select>
+        </div>
+        <div class="tbl-wrap">
+          <table><thead><tr><th>Country</th><th>Branch</th><th>Name</th><th>Command</th><th></th></tr></thead>
+          <tbody id="inst-tbody"><tr><td colspan="5" style="color:var(--muted);text-align:center;padding:20px">Loading...</td></tr></tbody></table>
+        </div>
+      </div>
+    </div>
+
+    <!-- ELITE UNITS -->
+    <div class="rp-section" id="rp-units">
+      <div class="rp-header">
+        <div style="display:flex;align-items:center;justify-content:space-between">
+          <div><div class="rp-title">◈ Elite Units</div><div class="rp-sub">Special operations forces</div></div>
+          <button class="btn primary" onclick="openModal('modal-unit')">+ Add</button>
+        </div>
+      </div>
+      <div class="rp-body">
+        <div class="filter-bar">
+          <input type="text" id="unit-q" placeholder="Search..." oninput="loadUnits()" style="flex:1;width:auto">
+          <select id="unit-country" onchange="loadUnits()" style="width:auto"><option value="">All Countries</option></select>
+        </div>
+        <div class="tbl-wrap">
+          <table><thead><tr><th>Country</th><th>Branch</th><th>Unit</th><th>Type</th><th>Base</th></tr></thead>
+          <tbody id="unit-tbody"></tbody></table>
+        </div>
+      </div>
+    </div>
+
+    <!-- VISITORS -->
+    <div class="rp-section" id="rp-visitors">
+      <div class="rp-header"><div class="rp-title">⬡ Visitor Intel</div><div class="rp-sub">Network surveillance feed</div></div>
+      <div class="rp-body">
+        <div class="stat-grid" id="visit-summary"></div>
+        <div style="font-size:9px;color:var(--muted);letter-spacing:.1em;text-transform:uppercase;margin-bottom:8px;padding-bottom:5px;border-bottom:1px solid var(--border)">Recent Intercepts</div>
+        <div class="tbl-wrap"><table>
+          <thead><tr><th>IP</th><th>Location</th><th>Path</th><th>Browser</th><th>Last Seen</th></tr></thead>
+          <tbody id="visit-tbody"></tbody>
+        </table></div>
+      </div>
+    </div>
+
+    <!-- EMBASSIES -->
+    <div class="rp-section" id="rp-embassies">
+      <div class="rp-header"><div class="rp-title">🏛 US Embassies</div><div class="rp-sub">Diplomatic missions worldwide</div></div>
+      <div class="rp-body">
+        <div class="tbl-wrap"><table>
+          <thead><tr><th>Country</th><th>Embassy</th><th>Address</th><th></th></tr></thead>
+          <tbody id="emb-list"><tr><td colspan="4" style="color:var(--muted)">Loading...</td></tr></tbody>
+        </table></div>
+      </div>
+    </div>
+
+    <!-- AIRPORTS -->
+    <div class="rp-section" id="rp-airports">
+      <div class="rp-header"><div class="rp-title">✈ World Airports</div><div class="rp-sub">194 international airports</div></div>
+      <div class="rp-body">
+        <div class="filter-bar">
+          <input type="text" id="apt-q" placeholder="Search airport, city, IATA…" style="flex:1" oninput="loadAirports()">
+        </div>
+        <div class="tbl-wrap"><table>
+          <thead><tr><th>IATA</th><th>Airport</th><th>City</th><th>Country</th><th>Type</th></tr></thead>
+          <tbody id="apt-list"><tr><td colspan="5" style="color:var(--muted)">Loading...</td></tr></tbody>
+        </table></div>
+      </div>
+    </div>
+
+    <!-- BANKS -->
+    <div class="rp-section" id="rp-banks">
+      <div class="rp-header"><div class="rp-title">🏦 Global Banks</div><div class="rp-sub">Top 100 banks by total assets</div></div>
+      <div class="rp-body">
+        <div class="filter-bar"><input type="text" id="bank-q" placeholder="Search bank, country…" style="flex:1" oninput="loadBanks()"></div>
+        <div class="tbl-wrap"><table>
+          <thead><tr><th>#</th><th>Bank</th><th>Country</th><th>Assets</th></tr></thead>
+          <tbody id="bank-list"><tr><td colspan="4" style="color:var(--muted)">Loading...</td></tr></tbody>
+        </table></div>
+      </div>
+    </div>
+
+    <!-- DATA CENTERS -->
+    <div class="rp-section" id="rp-datacenters">
+      <div class="rp-header"><div class="rp-title">🖥 Data Centers</div><div class="rp-sub">Cloud regions, hyperscale, colocation</div></div>
+      <div class="rp-body">
+        <div class="filter-bar"><input type="text" id="dc-q" placeholder="Search DC, operator, city…" style="flex:1" oninput="loadDatacenters()"></div>
+        <div class="tbl-wrap"><table>
+          <thead><tr><th>Name</th><th>Operator</th><th>Country</th><th>Type</th></tr></thead>
+          <tbody id="dc-list"><tr><td colspan="4" style="color:var(--muted)">Loading...</td></tr></tbody>
+        </table></div>
+      </div>
+    </div>
+
+    <!-- DEFENSE CONTRACTORS -->
+    <div class="rp-section" id="rp-defense">
+      <div class="rp-header"><div class="rp-title">⚔ Defense Contractors</div><div class="rp-sub">Arms manufacturers worldwide</div></div>
+      <div class="rp-body">
+        <div class="filter-bar"><input type="text" id="def-q" placeholder="Search company, products…" style="flex:1" oninput="loadDefense()"></div>
+        <div class="tbl-wrap"><table>
+          <thead><tr><th>#</th><th>Company</th><th>Country</th><th>Revenue</th></tr></thead>
+          <tbody id="def-list"><tr><td colspan="4" style="color:var(--muted)">Loading...</td></tr></tbody>
+        </table></div>
+      </div>
+    </div>
+
+    <!-- REFINERIES -->
+    <div class="rp-section" id="rp-refineries">
+      <div class="rp-header"><div class="rp-title">🛢 Oil Refineries</div><div class="rp-sub">Major refineries by capacity</div></div>
+      <div class="rp-body">
+        <div class="filter-bar"><input type="text" id="ref-q" placeholder="Search refinery, operator…" style="flex:1" oninput="loadRefineries()"></div>
+        <div class="tbl-wrap"><table>
+          <thead><tr><th>Refinery</th><th>Operator</th><th>Country</th><th>Capacity</th></tr></thead>
+          <tbody id="ref-list"><tr><td colspan="4" style="color:var(--muted)">Loading...</td></tr></tbody>
+        </table></div>
+      </div>
+    </div>
+
+    <!-- CUSTOM LAYER (CSV Import) -->
+    <div class="rp-section" id="rp-custom">
+      <div class="rp-header"><div class="rp-title">📍 CSV Import</div><div class="rp-sub">Import your own CSV to map it</div></div>
+      <div class="rp-body">
+        <div style="background:#020810;border:1px solid var(--border);border-radius:5px;padding:14px;margin-bottom:10px;">
+          <div style="font-size:10px;color:var(--muted);letter-spacing:.1em;text-transform:uppercase;margin-bottom:8px;">CSV FORMAT</div>
+          <div style="font-size:10px;color:var(--text);line-height:1.8;font-family:monospace;">
+            Required: <span style="color:var(--accent)">lat</span>, <span style="color:var(--accent)">lng</span> (or <span style="color:var(--accent)">lon</span>)<br>
+            Optional: <span style="color:var(--cyan)">name</span>, <span style="color:var(--cyan)">description</span><br><br>
+            <span style="color:var(--muted)">Example:</span><br>
+            name,lat,lng,description<br>
+            Eiffel Tower,48.8584,2.2945,Paris landmark<br>
+            Big Ben,51.5007,-0.1246,London
+          </div>
+        </div>
+        <label style="display:block;cursor:pointer;">
+          <input type="file" accept=".csv,.txt" style="display:none" onchange="handleCSV(this.files[0])">
+          <div style="background:rgba(0,255,136,.08);border:1px dashed var(--accent);border-radius:5px;padding:20px;text-align:center;color:var(--accent);font-size:12px;letter-spacing:.08em;">
+            ⬆ CLICK TO UPLOAD CSV
+          </div>
+        </label>
+        <div id="csv-count" style="text-align:center;font-size:11px;color:var(--muted);margin-top:8px;"></div>
+        <div style="margin-top:12px;" id="csv-preview"></div>
+      </div>
+    </div>
+
+    <!-- CORP HQs -->
+    <div class="rp-section" id="rp-corps">
+      <div class="rp-header"><div class="rp-title">🏢 Corp HQ Locations</div><div class="rp-sub">Fortune Global 250 by revenue</div></div>
+      <div class="rp-body">
+        <div class="filter-bar">
+          <input type="text" id="corp-q" placeholder="Search company, industry…" style="flex:1" oninput="loadCorps()">
+        </div>
+        <div class="tbl-wrap"><table>
+          <thead><tr><th>#</th><th>Company</th><th>Industry</th><th>Country</th><th>Revenue</th></tr></thead>
+          <tbody id="corp-list"><tr><td colspan="5" style="color:var(--muted)">Loading...</td></tr></tbody>
+        </table></div>
+      </div>
+    </div>
+
+
+    <!-- ASK CLAUDE -->
+    <div class="rp-section" id="rp-askclaude">
+      <div class="rp-header"><div class="rp-title">🤖 Ask Claude</div><div class="rp-sub">AI intelligence analyst</div></div>
+      <div class="rp-body" style="display:flex;flex-direction:column;height:calc(100% - 60px);padding:0">
+        <div id="claude-msgs" style="flex:1;overflow-y:auto;padding:12px;display:flex;flex-direction:column;gap:8px;min-height:0"></div>
+        <div style="padding:10px;border-top:1px solid var(--border);background:rgba(0,0,0,.3)">
+          <div style="display:flex;gap:6px;align-items:flex-end">
+            <textarea id="claude-input" placeholder="Ask anything about the map data..." rows="2"
+              style="flex:1;background:#0d1a24;border:1px solid var(--border);color:var(--fg);padding:7px 9px;border-radius:4px;font-size:12px;font-family:inherit;resize:none;outline:none"
+              onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();sendClaude()}"
+            ></textarea>
+            <button onclick="sendClaude()" style="background:var(--accent);color:#000;border:none;padding:7px 12px;border-radius:4px;font-size:11px;font-weight:700;cursor:pointer;white-space:nowrap">Send</button>
+          </div>
+          <div style="font-size:9px;color:var(--muted);margin-top:4px">Shift+Enter for newline · Enter to send</div>
+        </div>
+      </div>
+    </div>
+
+
+    <!-- UNIVERSITIES -->
+    <div class="rp-section" id="rp-universities">
+      <div class="rp-header"><div class="rp-title">🎓 Universities</div><div class="rp-sub">Top 100 global universities by QS ranking</div></div>
+      <div class="rp-body">
+        <div style="display:flex;gap:6px;margin-bottom:10px;flex-wrap:wrap">
+          <input class="srch" id="uni-q" placeholder="Search..." oninput="loadUniversities()" style="flex:1;min-width:100px">
+          <select class="srch" id="uni-country" onchange="loadUniversities()" style="flex:1;min-width:100px"><option value="">All Countries</option></select>
+          <select class="srch" id="uni-type" onchange="loadUniversities()"><option value="">All Types</option><option value="Public">Public</option><option value="Private">Private</option></select>
+        </div>
+        <div class="tbl-wrap"><table>
+          <thead><tr><th>#</th><th>University</th><th>Country</th><th>Founded</th><th>Type</th></tr></thead>
+          <tbody id="uni-list"><tr><td colspan="5" style="color:var(--muted)">Loading...</td></tr></tbody>
+        </table></div>
+      </div>
+    </div>
+
+
+    <!-- COUNTRIES -->
+    <div class="rp-section" id="rp-countries">
+      <div class="rp-header"><div class="rp-title">🌐 Countries</div><div class="rp-sub">Every country on Earth — 195 nations</div></div>
+      <div class="rp-body">
+        <div style="display:flex;gap:6px;margin-bottom:10px">
+          <input class="srch" id="country-q" placeholder="Search country..." oninput="renderCountries()" style="flex:1">
+          <select class="srch" id="country-region" onchange="renderCountries()">
+            <option value="">All Regions</option>
+            <option value="Africa">Africa</option>
+            <option value="Americas">Americas</option>
+            <option value="Asia">Asia</option>
+            <option value="Europe">Europe</option>
+            <option value="Oceania">Oceania</option>
+          </select>
+        </div>
+        <div class="tbl-wrap"><table>
+          <thead><tr><th>Flag</th><th>Country</th><th>Region</th><th>Capital</th></tr></thead>
+          <tbody id="country-list"><tr><td colspan="4" style="color:var(--muted)">Loading...</td></tr></tbody>
+        </table></div>
+      </div>
+    </div>
+
+
+    <!-- TELECOM -->
+    <div class="rp-section" id="rp-telecom">
+      <div class="rp-header"><div class="rp-title">📡 Telecom</div><div class="rp-sub">65 global carriers by subscriber count</div></div>
+      <div class="rp-body">
+        <div style="display:flex;gap:6px;margin-bottom:10px;flex-wrap:wrap">
+          <input class="srch" id="tel-q" placeholder="Search..." oninput="loadTelecom()" style="flex:1;min-width:80px">
+          <select class="srch" id="tel-type" onchange="loadTelecom()">
+            <option value="">All Types</option>
+            <option value="Mobile">Mobile</option>
+            <option value="Fixed">Fixed</option>
+            <option value="Both">Both</option>
+          </select>
+        </div>
+        <div class="tbl-wrap"><table>
+          <thead><tr><th>#</th><th>Carrier</th><th>Country</th><th>Subs (M)</th><th>Type</th></tr></thead>
+          <tbody id="tel-list"><tr><td colspan="5" style="color:var(--muted)">Loading...</td></tr></tbody>
+        </table></div>
+      </div>
+    </div>
+
+  </div><!-- /right-panel -->
+</div><!-- /shell -->
+
+<!-- MODALS -->
+<div class="modal-bg" id="modal-install"><div class="modal">
+  <h2>Add Installation</h2>
+  <div class="frow"><div><label>Country *</label><input class="fi" id="i-country"></div><div><label>Branch</label><input class="fi" id="i-branch" placeholder="Army / Navy / etc."></div></div>
+  <div class="frow full"><label>Name *</label><input class="fi" id="i-name"></div>
+  <div class="frow full"><label>Address / Location</label><input class="fi" id="i-address"></div>
+  <div class="frow"><div><label>Latitude</label><input class="fi" id="i-lat" type="number" step="any"></div><div><label>Longitude</label><input class="fi" id="i-lng" type="number" step="any"></div></div>
+  <div class="frow full"><label>Command Name</label><input class="fi" id="i-command"></div>
+  <div class="frow full"><label>Website</label><input class="fi" id="i-website"></div>
+  <div class="frow full"><label>Notes</label><textarea class="fi" id="i-notes"></textarea></div>
+  <div class="mact"><button class="btn" onclick="closeModal('modal-install')">Cancel</button><button class="btn primary" onclick="saveInst()">Save</button></div>
+</div></div>
+
+<div class="modal-bg" id="modal-unit"><div class="modal">
+  <h2>Add Elite Unit</h2>
+  <div class="frow"><div><label>Country *</label><input class="fi" id="u-country"></div><div><label>Branch</label><input class="fi" id="u-branch"></div></div>
+  <div class="frow full"><label>Unit Name *</label><input class="fi" id="u-name"></div>
+  <div class="frow"><div><label>Nickname</label><input class="fi" id="u-nickname"></div><div><label>Type</label><input class="fi" id="u-type" placeholder="SOF / Recon / etc."></div></div>
+  <div class="frow"><div><label>Founded</label><input class="fi" id="u-founded"></div><div><label>Home Base</label><input class="fi" id="u-base"></div></div>
+  <div class="frow full"><label>Motto</label><input class="fi" id="u-motto"></div>
+  <div class="frow full"><label>Description</label><textarea class="fi" id="u-desc"></textarea></div>
+  <div class="mact"><button class="btn" onclick="closeModal('modal-unit')">Cancel</button><button class="btn primary" onclick="saveUnit()">Save</button></div>
+</div></div>
+
+<div class="modal-bg" id="modal-mission"><div class="modal">
+  <h2>New Mission</h2>
+  <div class="frow full"><label>Title *</label><input class="fi" id="m-title"></div>
+  <div class="frow"><div><label>Status</label><select class="fi" id="m-status"><option>PENDING</option><option>ACTIVE</option><option>CRITICAL</option><option>COMPLETE</option></select></div><div><label>Priority</label><select class="fi" id="m-priority"><option>NORMAL</option><option>HIGH</option><option>URGENT</option></select></div></div>
+  <div class="frow"><div><label>Location</label><input class="fi" id="m-loc"></div><div><label>Timezone</label><input class="fi" id="m-tz" placeholder="e.g. Europe/Moscow"></div></div>
+  <div class="frow"><div><label>Latitude</label><input class="fi" id="m-lat"></div><div><label>Longitude</label><input class="fi" id="m-lng"></div></div>
+  <div class="frow full"><label>Assigned To</label><input class="fi" id="m-assigned"></div>
+  <div class="frow full"><label>Objective</label><textarea class="fi" id="m-obj"></textarea></div>
+  <div class="mact"><button class="btn" onclick="closeModal('modal-mission')">Cancel</button><button class="btn primary" onclick="saveMission()">Save</button></div>
+</div></div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js?v=2"></script>
+<script>
+// ── CLOCKS ────────────────────────────────────────────────
+const ZONES=[{city:'ZULU',tz:'UTC'},{city:'DC',tz:'America/New_York'},{city:'CHICAGO',tz:'America/Chicago'},
+  {city:'LA',tz:'America/Los_Angeles'},{city:'LONDON',tz:'Europe/London'},{city:'PARIS',tz:'Europe/Paris'},
+  {city:'MOSCOW',tz:'Europe/Moscow'},{city:'DUBAI',tz:'Asia/Dubai'},{city:'DELHI',tz:'Asia/Kolkata'},
+  {city:'BEIJING',tz:'Asia/Shanghai'},{city:'TOKYO',tz:'Asia/Tokyo'},{city:'SYDNEY',tz:'Australia/Sydney'}];
+const strip=document.getElementById('clocks');
+ZONES.forEach(z=>{
+  const el=document.createElement('div'); el.className='clock-cell';
+  el.innerHTML=`<div class="cz">${z.tz.split('/')[0]}</div><div class="ct" id="ck-${z.city}">--:--</div><div class="cc">${z.city}</div>`;
+  strip.appendChild(el);
+});
+function tickClocks(){
+  const n=new Date();
+  ZONES.forEach(z=>{
+    const t=n.toLocaleTimeString('en-US',{timeZone:z.tz,hour12:false,hour:'2-digit',minute:'2-digit',second:'2-digit'});
+    const el=document.getElementById('ck-'+z.city); if(el) el.textContent=t;
+  });
+  document.getElementById('zulu-top').textContent=n.toISOString().substr(11,8)+'Z';
+}
+setInterval(tickClocks,1000); tickClocks();
+
+// ── GLOBE ─────────────────────────────────────────────────
+const canvas=document.getElementById('globe');
+const renderer=new THREE.WebGLRenderer({canvas,antialias:true,alpha:true});
+const scene=new THREE.Scene();
+const camera=new THREE.PerspectiveCamera(45,2,0.1,1000);
+camera.position.z=2.8;
+
+const globeGroup=new THREE.Group();
+scene.add(globeGroup);
+const highlightGroup=new THREE.Group();
+globeGroup.add(highlightGroup);
+let hlPulse=0, targetRotY=null, targetRotX=null, autoSpin=true;
+
+// Base globe — permanent
+globeGroup.add(new THREE.Mesh(new THREE.SphereGeometry(1,36,24),new THREE.MeshBasicMaterial({color:0x00ff88,wireframe:true,transparent:true,opacity:.13})));
+globeGroup.add(new THREE.Mesh(new THREE.SphereGeometry(.98,32,32),new THREE.MeshBasicMaterial({color:0x003322,transparent:true,opacity:.5})));
+const atmo=new THREE.Mesh(new THREE.SphereGeometry(1.1,32,32),new THREE.MeshBasicMaterial({color:0x00ff88,transparent:true,opacity:.018,side:THREE.BackSide}));
+globeGroup.add(atmo);
+globeGroup.add(new THREE.Mesh(new THREE.TorusGeometry(1.002,.002,2,120),new THREE.MeshBasicMaterial({color:0x00ff88,transparent:true,opacity:.7})));
+[-60,-30,30,60].forEach(lat=>{
+  const r=Math.cos(lat*Math.PI/180),y=Math.sin(lat*Math.PI/180);
+  const m=new THREE.Mesh(new THREE.TorusGeometry(r*1.001,.001,2,80),new THREE.MeshBasicMaterial({color:0x00ff88,transparent:true,opacity:.3}));
+  m.position.y=y; globeGroup.add(m);
+});
+const pm=new THREE.Mesh(new THREE.TorusGeometry(1.002,.001,2,120),new THREE.MeshBasicMaterial({color:0x00aaff,transparent:true,opacity:.5}));
+pm.rotation.y=Math.PI/2; globeGroup.add(pm);
+
+// Stars
+const sv=[];
+for(let i=0;i<1200;i++){const t=Math.random()*Math.PI*2,p=Math.acos(2*Math.random()-1),r=8+Math.random()*14;sv.push(r*Math.sin(p)*Math.cos(t),r*Math.cos(p),r*Math.sin(p)*Math.sin(t));}
+const sg=new THREE.BufferGeometry(); sg.setAttribute('position',new THREE.Float32BufferAttribute(sv,3));
+scene.add(new THREE.Points(sg,new THREE.PointsMaterial({color:0x88ccee,size:.035,transparent:true,opacity:.6})));
+
+// Marker group — gets cleared on mode switch
+const markerGroup=new THREE.Group();
+globeGroup.add(markerGroup);
+
+function clearMarkers(){ while(markerGroup.children.length){ markerGroup.remove(markerGroup.children[0]); } }
+
+function latLngToVec(lat,lng){
+  const phi=(90-lat)*Math.PI/180, theta=(lng+180)*Math.PI/180;
+  return { x:-(Math.sin(phi)*Math.cos(theta)), y:Math.cos(phi), z:Math.sin(phi)*Math.sin(theta) };
+}
+
+function makeSprite(line1,line2,color){
+  const c=document.createElement('canvas'); c.width=256; c.height=56;
+  const ctx=c.getContext('2d');
+  ctx.font='bold 14px Courier New';
+  ctx.fillStyle=color||'rgba(0,220,255,0.95)';
+  ctx.fillText(line1,4,20);
+  if(line2){ctx.font='11px Courier New'; ctx.fillStyle='rgba(180,220,180,0.7)'; ctx.fillText(line2,4,38);}
+  const tex=new THREE.CanvasTexture(c);
+  const mat=new THREE.SpriteMaterial({map:tex,transparent:true,depthTest:false});
+  const s=new THREE.Sprite(mat); s.scale.set(.5,.11,1); return s;
+}
+
+function addPin(lat,lng,color,size,line1,line2){
+  if(lat==null||lng==null||isNaN(lat)||isNaN(lng)) return;
+  const {x,y,z}=latLngToVec(lat,lng);
+  const dot=new THREE.Mesh(new THREE.SphereGeometry(size||.012,8,8),new THREE.MeshBasicMaterial({color}));
+  dot.position.set(x,y,z); markerGroup.add(dot);
+  if(line1){
+    const lbl=makeSprite(line1,line2);
+    lbl.position.set(x*1.15,y*1.15+.06,z*1.15); markerGroup.add(lbl);
+  }
+}
+
+function resizeGlobe(){
+  const p=canvas.parentElement;
+  renderer.setPixelRatio(window.devicePixelRatio);
+  renderer.setSize(p.clientWidth,p.clientHeight);
+  camera.aspect=p.clientWidth/p.clientHeight;
+  camera.updateProjectionMatrix();
+}
+resizeGlobe();
+
+// ── SCROLL ZOOM ───────────────────────────────────────────
+let camZ = 2.8;
+canvas.parentElement.addEventListener('wheel', e => {
+  e.preventDefault();
+  camZ = Math.max(1.4, Math.min(5.0, camZ + e.deltaY * 0.003));
+  camera.position.z = camZ;
+}, { passive: false });
+
+function animate(){
+  requestAnimationFrame(animate);
+  if(targetRotY!==null){
+    autoSpin=false;
+    globeGroup.rotation.y+=(targetRotY-globeGroup.rotation.y)*0.06;
+    globeGroup.rotation.x+=(targetRotX-globeGroup.rotation.x)*0.06;
+  } else {
+    if(autoSpin) globeGroup.rotation.y+=.0009;
+  }
+  hlPulse+=0.07;
+  highlightGroup.children.forEach(c=>{const s=1+0.35*Math.sin(hlPulse);c.scale.set(s,s,s);});
+  const t=Date.now();
+  atmo.material.opacity=0.010+0.009*Math.sin(t*0.0007)+0.003*Math.sin(t*0.0029);
+  renderer.render(scene,camera);
+}
+animate();
+window.addEventListener('resize',resizeGlobe);
+
+// ── GLOBE MODES ───────────────────────────────────────────
+const modeLabels={
+  globe:'VISITOR CITIES', missions:'MISSION SITES',
+  installations:'US BASES', embassies:'US EMBASSIES',
+  units:'ELITE UNIT BASES', airports:'WORLD AIRPORTS',
+  corps:'CORP HQ LOCATIONS', banks:'GLOBAL BANKS',
+  datacenters:'DATA CENTERS', defense:'DEFENSE CONTRACTORS',
+  refineries:'OIL REFINERIES', visitors:'VISITOR CITIES',
+  custom:'CUSTOM LAYER'
+};
+
+async function loadGlobeFor(mode){
+  clearMarkers();
+  document.getElementById('globe-loading').classList.add('show');
+  document.getElementById('globe-count').textContent='—';
+  document.getElementById('mode-indicator').textContent=modeLabels[mode]||mode.toUpperCase();
+
+  try {
+    if(mode==='all'){
+      const [installs,units,airports,corps,banks,dcs,defense,refs,unis,telecom,cities]=await Promise.all([
+        fetch('/api/installations').then(r=>r.json()).catch(()=>[]),
+        fetch('/api/units').then(r=>r.json()).catch(()=>[]),
+        fetch('/api/airports').then(r=>r.json()).catch(()=>[]),
+        fetch('/api/corporations').then(r=>r.json()).catch(()=>[]),
+        fetch('/api/banks').then(r=>r.json()).catch(()=>[]),
+        fetch('/api/datacenters').then(r=>r.json()).catch(()=>[]),
+        fetch('/api/defense').then(r=>r.json()).catch(()=>[]),
+        fetch('/api/refineries').then(r=>r.json()).catch(()=>[]),
+        fetch('/api/universities').then(r=>r.json()).catch(()=>[]),
+        fetch('/api/telecom').then(r=>r.json()).catch(()=>[]),
+        fetch('/api/network-cities').then(r=>r.json()).catch(()=>[]),
+      ]);
+      const bases=installs.filter(r=>r.branch!=='Embassy');
+      const embassies=installs.filter(r=>r.branch==='Embassy');
+      bases.forEach(r=>{if(r.lat&&r.lng)addPin(r.lat,r.lng,0xff6600,0.009,r.name,r.branch+' · '+r.country);});
+      embassies.forEach(r=>{if(r.lat&&r.lng)addPin(r.lat,r.lng,0x00aaff,0.007,r.name,r.country);});
+      units.forEach(r=>{if(r.lat&&r.lng)addPin(r.lat,r.lng,0xff3344,0.010,r.name,r.country);});
+      airports.forEach(r=>{if(r.lat&&r.lng)addPin(r.lat,r.lng,0xffcc00,0.006,r.name,r.city+', '+r.country);});
+      corps.forEach((r,i)=>{if(r.lat&&r.lng)addPin(r.lat,r.lng,0xff8800,0.007,r.name,r.country);});
+      banks.forEach(r=>{if(r.lat&&r.lng)addPin(r.lat,r.lng,0xffd700,0.008,r.name,r.country);});
+      dcs.forEach(r=>{if(r.lat&&r.lng)addPin(r.lat,r.lng,r.type==='hyperscale'?0x00ffff:0x0088ff,0.007,r.name,r.operator);});
+      defense.forEach(r=>{if(r.lat&&r.lng)addPin(r.lat,r.lng,0xff4422,0.008,r.name,r.country);});
+      const maxCap=Math.max(...refs.map(r=>r.capacity_bpd||0),1);
+      refs.forEach(r=>{if(r.lat&&r.lng)addPin(r.lat,r.lng,0xff7700,0.006+0.008*(r.capacity_bpd||0)/maxCap,r.name,r.operator);});
+      unis.forEach(r=>{if(r.lat&&r.lng)addPin(r.lat,r.lng,0x9966ff,0.009+0.006*(1-(r.rank-1)/99),r.name,'#'+r.rank);});
+      const maxTelSubs=Math.max(...telecom.map(r=>r.subscribers_millions||0),1);
+      telecom.forEach(r=>{if(r.lat&&r.lng)addPin(r.lat,r.lng,0x00e5cc,0.008+0.014*(r.subscribers_millions||0)/maxTelSubs,r.name,r.country);});
+      const maxV=cities[0]?.visits||1;
+      cities.forEach(r=>{if(r.lat&&r.lng)addPin(r.lat,r.lng,0x00dcff,0.004+0.008*Math.min(r.visits/maxV,1),r.city,r.country);});
+      const total=installs.length+units.length+airports.length+corps.length+banks.length+dcs.length+defense.length+refs.length+unis.length+telecom.length+cities.length;
+      document.getElementById('globe-count').textContent=total+' pins';
+      document.getElementById('all-layer-counts').innerHTML=[
+        ['◉ Bases',bases.length,'#ff6600'],
+        ['🏛 Embassies',embassies.length,'#00aaff'],
+        ['◈ Elite Units',units.length,'#ff3344'],
+        ['✈ Airports',airports.length,'#ffcc00'],
+        ['🏢 Corps',corps.length,'#ff8800'],
+        ['🏦 Banks',banks.length,'#ffd700'],
+        ['🖥 Data Ctrs',dcs.length,'#00ccff'],
+        ['⚔ Defense',defense.length,'#ff4422'],
+        ['🛢 Refineries',refs.length,'#ff7700'],
+        ['🎓 Universities',unis.length,'#9966ff'],
+        ['📡 Telecom',telecom.length,'#00e5cc'],
+        ['⬡ Visitor Cities',cities.length,'#00dcff'],
+      ].map(([label,count,color])=>`<div style="display:flex;justify-content:space-between;align-items:center;padding:3px 0;border-bottom:1px solid var(--border)"><span style="font-size:11px;color:#8ab8d4">${label}</span><span style="font-size:11px;font-weight:700;color:${color}">${count}</span></div>`).join('');
+
+    } else if(mode==='installations'){
+      const rows=await fetch('/api/installations').then(r=>r.json());
+      rows.forEach(r=>{ if(r.lat&&r.lng) addPin(r.lat,r.lng,0xff6600,.013,r.name,r.country+' · '+(r.branch||'')); });
+      document.getElementById('globe-count').textContent=rows.filter(r=>r.lat&&r.lng).length+' bases';
+
+    } else if(mode==='missions'){
+      const rows=await fetch('/api/missions').then(r=>r.json());
+      const colors={ACTIVE:0x00ff88,CRITICAL:0xff3344,PENDING:0xffcc00,COMPLETE:0x4a7a9b};
+      rows.forEach(r=>{ if(r.lat&&r.lng) addPin(r.lat,r.lng,colors[r.status]||0xffcc00,.014,r.title,r.location||r.status); });
+      document.getElementById('globe-count').textContent=rows.filter(r=>r.lat&&r.lng).length+' ops';
+
+    } else if(mode==='units'){
+      const rows=await fetch('/api/units').then(r=>r.json());
+      rows.forEach(r=>{ if(r.lat&&r.lng) addPin(r.lat,r.lng,0xff3344,.012,r.name,r.country+' · '+(r.nickname||r.type||'')); });
+      document.getElementById('globe-count').textContent=rows.filter(r=>r.lat&&r.lng).length+' units';
+
+    } else if(mode==='embassies'){
+      const rows=await fetch('/api/installations?branch=Embassy').then(r=>r.json());
+      rows.forEach(r=>{ if(r.lat&&r.lng) addPin(r.lat,r.lng,0x00aaff,.011,r.name,r.country); });
+      document.getElementById('globe-count').textContent=rows.filter(r=>r.lat&&r.lng).length+' embassies';
+
+    } else if(mode==='airports'){
+      const rows=await fetch('/api/airports').then(r=>r.json());
+      rows.forEach(r=>{ if(r.lat&&r.lng) addPin(r.lat,r.lng,0xffcc00,.009,r.iata+' · '+r.name,r.city+', '+r.country); });
+      document.getElementById('globe-count').textContent=rows.length+' airports';
+
+    } else if(mode==='corps'){
+      const rows=await fetch('/api/corporations').then(r=>r.json());
+      const top50=rows.slice(0,50);
+      rows.forEach(r=>{
+        const isTop=r.rank<=50;
+        addPin(r.lat,r.lng,isTop?0xff6600:0xffaa44,isTop?.014:.009,
+          '#'+r.rank+' '+r.name, r.city+' · $'+r.revenue_usd_b+'B');
+      });
+      document.getElementById('globe-count').textContent=rows.length+' corp HQs';
+
+    } else if(mode==='banks'){
+      const rows=await fetch('/api/banks').then(r=>r.json());
+      rows.forEach(r=>{ if(r.lat&&r.lng) addPin(r.lat,r.lng,0xffd700,.011,r.name,r.country+' · $'+r.assets_usd_b+'B assets'); });
+      document.getElementById('globe-count').textContent=rows.filter(r=>r.lat&&r.lng).length+' banks';
+
+    } else if(mode==='datacenters'){
+      const rows=await fetch('/api/datacenters').then(r=>r.json());
+      const colors={'Cloud Region':0x00aaff,'Hyperscale':0x00dcff,'Colocation':0x44eeff,'Government':0xff3344};
+      rows.forEach(r=>{ if(r.lat&&r.lng) addPin(r.lat,r.lng,colors[r.type]||0x00aaff,.010,r.name,r.operator+' · '+r.type); });
+      document.getElementById('globe-count').textContent=rows.length+' data centers';
+
+    } else if(mode==='defense'){
+      const rows=await fetch('/api/defense').then(r=>r.json());
+      rows.forEach(r=>{ if(r.lat&&r.lng) addPin(r.lat,r.lng,0xff4422,.012,r.name,r.country+' · $'+r.defense_revenue_usd_b+'B'); });
+      document.getElementById('globe-count').textContent=rows.filter(r=>r.lat&&r.lng).length+' contractors';
+
+    } else if(mode==='refineries'){
+      const rows=await fetch('/api/refineries').then(r=>r.json());
+      const maxCap=rows[0]?.capacity_bpd||1;
+      rows.forEach(r=>{
+        const scale=0.008+0.016*Math.min(r.capacity_bpd/maxCap,1);
+        if(r.lat&&r.lng) addPin(r.lat,r.lng,0xff7700,scale,r.name,r.operator+' · '+(r.capacity_bpd/1000).toFixed(0)+'K bpd');
+      });
+      document.getElementById('globe-count').textContent=rows.filter(r=>r.lat&&r.lng).length+' refineries';
+
+    } else if(mode==='countries'){
+      COUNTRIES_DATA.forEach(c=>{
+        addPin(c.lat,c.lng,0x44bbff,0.009,c.flag+' '+c.name,c.region+' · Capital: '+c.capital);
+      });
+      document.getElementById('globe-count').textContent=COUNTRIES_DATA.length+' countries';
+
+    } else if(mode==='telecom'){
+      const rows=await fetch('/api/telecom').then(r=>r.json());
+      const maxSubs=Math.max(...rows.map(r=>r.subscribers_millions||0),1);
+      rows.forEach(r=>{
+        const scale=0.008+0.014*(r.subscribers_millions||0)/maxSubs;
+        addPin(r.lat,r.lng,0x00e5cc,scale,r.name,r.country+' · '+r.subscribers_millions+'M subs');
+      });
+      document.getElementById('globe-count').textContent=rows.length+' carriers';
+
+    } else if(mode==='universities'){
+      const rows=await fetch('/api/universities').then(r=>r.json());
+      rows.forEach(r=>{
+        const scale=0.009+0.006*(1-(r.rank-1)/99);
+        addPin(r.lat,r.lng,0x9966ff,scale,r.name,'#'+r.rank+' · '+r.city+', '+r.country+(r.founded?' · Est. '+r.founded:''));
+      });
+      document.getElementById('globe-count').textContent=rows.length+' universities';
+
+    } else if(mode==='custom'){
+      customPins.forEach((p,i)=>addPin(p.lat,p.lng,0xff00ff,.012,p.name,p.desc));
+      document.getElementById('globe-count').textContent=customPins.length+' pins';
+
+    } else {
+      // globe, visitors — show visitor cities
+      const cities=await fetch('/api/network-cities').then(r=>r.json());
+      const maxV=cities[0]?.visits||1;
+      cities.forEach(({city,country,visits,lat,lng})=>{
+        const scale=0.008+0.016*Math.min(visits/maxV,1);
+        addPin(lat,lng,0x00dcff,scale,city,country+' · '+visits.toLocaleString()+' visits');
+      });
+      document.getElementById('globe-count').textContent=cities.length+' cities';
+    }
+  } catch(e){ document.getElementById('globe-count').textContent='error'; }
+
+  document.getElementById('globe-loading').classList.remove('show');
+}
+
+// ── NAV SWITCH ────────────────────────────────────────────
+let currentMode='globe';
+function switchMode(id,el){
+  if(currentMode===id) return;
+  currentMode=id;
+  document.querySelectorAll('.nav-item').forEach(n=>n.classList.remove('active'));
+  el.classList.add('active');
+  document.querySelectorAll('.rp-section').forEach(s=>s.classList.remove('active'));
+  document.getElementById('rp-'+id).classList.add('active');
+  loadGlobeFor(id);
+  if(id==='installations') loadInst();
+  if(id==='embassies') loadEmbassies();
+  if(id==='units') loadUnits();
+  if(id==='airports') loadAirports();
+  if(id==='corps') loadCorps();
+  if(id==='banks') loadBanks();
+  if(id==='datacenters') loadDatacenters();
+  if(id==='defense') loadDefense();
+  if(id==='refineries') loadRefineries();
+  if(id==='universities') loadUniversities();
+  if(id==='telecom') loadTelecom();
+  if(id==='countries') renderCountries();
+  if(id==='visitors') loadVisitors();
+}
+
+// ── DATA LOADERS ──────────────────────────────────────────
+function esc(s){if(!s)return'';return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
+
+async function loadInst(){
+  const q=document.getElementById('inst-q').value;
+  const country=document.getElementById('inst-country').value;
+  const branch=document.getElementById('inst-branch').value;
+  const p=new URLSearchParams(); if(q)p.set('q',q); if(country)p.set('country',country); if(branch)p.set('branch',branch);
+  const rows=await fetch('/api/installations?'+p).then(r=>r.json());
+  document.getElementById('inst-tbody').innerHTML=rows.length?rows.map(r=>`<tr data-lat="${r.lat||''}" data-lng="${r.lng||''}">
+    <td><span class="tag tag-country">${esc(r.country)}</span></td>
+    <td>${r.branch?`<span class="tag tag-branch">${esc(r.branch)}</span>`:''}</td>
+    <td><strong>${esc(r.name)}</strong>${r.address?`<br><span style="color:var(--muted);font-size:10px">${esc(r.address)}</span>`:''}</td>
+    <td style="color:var(--muted);font-size:10px">${esc(r.command_name||'')}</td>
+    <td>${r.lat&&r.lng?`<a class="geo" href="https://earth.google.com/web/@${r.lat},${r.lng},1000a,500d" target="_blank">🌍</a>`:''}</td>
+  </tr>`).join(''):`<tr><td colspan="5" style="color:var(--muted);text-align:center;padding:20px">No installations. Add one to get started.</td></tr>`;
+}
+
+async function loadUnits(){
+  const q=document.getElementById('unit-q').value;
+  const country=document.getElementById('unit-country').value;
+  const p=new URLSearchParams(); if(q)p.set('q',q); if(country)p.set('country',country);
+  const rows=await fetch('/api/units?'+p).then(r=>r.json());
+  document.getElementById('unit-tbody').innerHTML=rows.length?rows.map(r=>`<tr data-lat="${r.lat||''}" data-lng="${r.lng||''}">
+    <td><span class="tag tag-country">${esc(r.country)}</span></td>
+    <td>${r.branch?`<span class="tag tag-branch">${esc(r.branch)}</span>`:''}</td>
+    <td><strong>${esc(r.name)}</strong>${r.nickname?` <span style="color:var(--muted)">"${esc(r.nickname)}"</span>`:''}</td>
+    <td>${r.type?`<span class="tag tag-type">${esc(r.type)}</span>`:''}</td>
+    <td style="color:var(--muted);font-size:10px">${esc(r.home_base||'')}</td>
+  </tr>`).join(''):`<tr><td colspan="5" style="color:var(--muted);text-align:center;padding:20px">No units.</td></tr>`;
+}
+
+async function loadMissions(){
+  const rows=await fetch('/api/missions').then(r=>r.json());
+  document.getElementById('mission-cards').innerHTML=rows.length?rows.map(r=>`
+    <div class="mission-card ${esc(r.status)}">
+      <div class="ms-status st-${esc(r.status)}">${esc(r.status)}</div>
+      <div class="ms-title">${esc(r.title)}</div>
+      <div class="ms-meta">${r.location?'📍 '+esc(r.location)+'<br>':''}${r.assigned_to?'👤 '+esc(r.assigned_to)+'<br>':''}${r.objective?'🎯 '+esc(r.objective):''}
+      </div>
+    </div>`).join(''):`<p style="color:var(--muted);font-size:11px;padding:10px 0">No missions logged.</p>`;
+}
+
+const _DEMO_VISITS={total:1,unique_ips:1,by_country:[{country:'US',c:1}],by_path:[{path:'/',c:1}],
+  recent:[{ip:'198.137.202.1',city:'Washington',country_geo:'US',path:'/',
+  user_agent:'Mozilla/5.0 (demo)',lat_geo:'38.8951',lng_geo:'-77.0364',created_at:'2026-01-20 12:00:00'}]};
+async function loadVisitors(){
+  const d=await fetch('/api/visits/summary').then(r=>r.json()).catch(()=>_DEMO_VISITS);
+  document.getElementById('visit-summary').innerHTML=`
+    <div class="stat-card"><div class="stat-lbl">Total Hits</div><div class="stat-val">${d.total||0}</div></div>
+    <div class="stat-card"><div class="stat-lbl">Unique IPs</div><div class="stat-val">${d.unique_ips||0}</div></div>
+    <div class="stat-card"><div class="stat-lbl">Countries</div><div class="stat-val">${(d.by_country||[]).length}</div></div>
+    <div class="stat-card"><div class="stat-lbl">Top Path</div><div class="stat-val" style="font-size:.7rem">${d.by_path&&d.by_path[0]?d.by_path[0].path:'—'}</div></div>`;
+  document.getElementById('visit-tbody').innerHTML=(d.recent||[]).map(r=>{
+    const ua=r.user_agent||'';
+    const browser=ua.match(/Chrome/)?'Chrome':ua.match(/Firefox/)?'Firefox':ua.match(/Safari/)?'Safari':ua.match(/curl/i)?'curl':ua.slice(0,14)||'?';
+    const ts=r.created_at?r.created_at.slice(5,16).replace('T',' '):'';
+    return `<tr data-lat="${r.lat_geo||''}" data-lng="${r.lng_geo||''}">
+      <td><span class="v-ip">${esc(r.ip||'')}</span></td>
+      <td>${esc(r.city||'—')}, <span class="tag tag-country" style="font-size:9px">${esc(r.country_geo||'?')}</span></td>
+      <td style="color:var(--muted);font-size:10px">${esc(r.path||'')}</td>
+      <td style="color:var(--muted);font-size:10px">${esc(browser)}</td>
+      <td style="color:var(--muted);font-size:10px;white-space:nowrap">${ts}</td>
+    </tr>`;
+  }).join('')||'<tr><td colspan="5" style="color:var(--muted)">No visits yet.</td></tr>';
+}
+
+// ── CUSTOM LAYER ──────────────────────────────────────────────
+let customPins = [];
+function handleCSV(file) {
+  const reader = new FileReader();
+  reader.onload = e => {
+    const lines = e.target.result.split('\n').map(l => l.trim()).filter(Boolean);
+    const header = lines[0].toLowerCase().split(',');
+    const latIdx = header.findIndex(h => h.includes('lat'));
+    const lngIdx = header.findIndex(h => h.includes('lng') || h.includes('lon'));
+    const nameIdx = header.findIndex(h => h.includes('name') || h.includes('title') || h.includes('label'));
+    const descIdx = header.findIndex(h => h.includes('desc') || h.includes('note') || h.includes('info'));
+    if (latIdx < 0 || lngIdx < 0) {
+      alert('CSV must have lat and lng (or lon) columns.');
+      return;
+    }
+    customPins = [];
+    for (let i = 1; i < lines.length; i++) {
+      const cols = lines[i].split(',');
+      const lat = parseFloat(cols[latIdx]);
+      const lng = parseFloat(cols[lngIdx]);
+      if (isNaN(lat) || isNaN(lng)) continue;
+      customPins.push({
+        lat, lng,
+        name: nameIdx >= 0 ? cols[nameIdx]?.trim() : 'Pin '+i,
+        desc: descIdx >= 0 ? cols[descIdx]?.trim() : ''
+      });
+    }
+    document.getElementById('csv-count').textContent = customPins.length + ' pins loaded';
+    switchMode('custom', document.querySelector('[onclick*="custom"]'));
+  };
+  reader.readAsText(file);
+}
+
+async function loadEmbassies(){
+  const rows=await fetch('/api/installations?branch=Embassy').then(r=>r.json());
+  document.getElementById('b-emb').textContent=rows.length;
+  document.getElementById('emb-list').innerHTML=rows.map(r=>`
+    <tr data-lat="${r.lat||''}" data-lng="${r.lng||''}"><td><span class="tag tag-country">${esc(r.country)}</span></td>
+    <td style="font-weight:600">${esc(r.name)}</td>
+    <td style="color:var(--muted)">${esc(r.address||'—')}</td>
+    <td>${r.website?`<a href="https://${esc(r.website)}" target="_blank" class="geo">↗</a>`:''}</td></tr>`).join('');
+}
+
+async function loadAirports(){
+  const q=document.getElementById('apt-q')?.value||'';
+  const url='/api/airports'+(q?'?q='+encodeURIComponent(q):'');
+  const rows=await fetch(url).then(r=>r.json());
+  document.getElementById('b-airports').textContent=rows.length;
+  document.getElementById('apt-list').innerHTML=rows.map(r=>`
+    <tr data-lat="${r.lat||''}" data-lng="${r.lng||''}"><td><b style="color:var(--yellow)">${esc(r.iata)}</b></td>
+    <td style="font-weight:600">${esc(r.name)}</td>
+    <td>${esc(r.city)}</td>
+    <td><span class="tag tag-country">${esc(r.country)}</span></td>
+    <td style="color:var(--muted);font-size:10px">${esc(r.type)}</td></tr>`).join('');
+}
+
+async function loadCorps(){
+  const q=document.getElementById('corp-q')?.value||'';
+  const url='/api/corporations'+(q?'?q='+encodeURIComponent(q):'');
+  const rows=await fetch(url).then(r=>r.json());
+  document.getElementById('b-corps').textContent=rows.length;
+  document.getElementById('corp-list').innerHTML=rows.map(r=>`
+    <tr data-lat="${r.lat||''}" data-lng="${r.lng||''}"><td style="color:var(--muted);font-size:10px">#${r.rank}</td>
+    <td style="font-weight:600">${esc(r.name)}</td>
+    <td style="color:var(--muted)">${esc(r.industry)}</td>
+    <td><span class="tag tag-country">${esc(r.country)}</span></td>
+    <td style="color:var(--accent)">$${r.revenue_usd_b}B</td></tr>`).join('');
+}
+
+async function loadBanks(){
+  const q=document.getElementById('bank-q')?.value||'';
+  const url='/api/banks'+(q?'?q='+encodeURIComponent(q):'');
+  const rows=await fetch(url).then(r=>r.json());
+  document.getElementById('b-banks').textContent=rows.length;
+  document.getElementById('bank-list').innerHTML=rows.map(r=>`
+    <tr data-lat="${r.lat||''}" data-lng="${r.lng||''}"><td style="color:var(--muted);font-size:10px">#${r.rank}</td>
+    <td style="font-weight:600">${esc(r.name)}</td>
+    <td><span class="tag tag-country">${esc(r.country)}</span></td>
+    <td style="color:var(--yellow)">$${r.assets_usd_b}B</td></tr>`).join('');
+}
+
+async function loadDatacenters(){
+  const q=document.getElementById('dc-q')?.value||'';
+  const url='/api/datacenters'+(q?'?q='+encodeURIComponent(q):'');
+  const rows=await fetch(url).then(r=>r.json());
+  document.getElementById('b-dc').textContent=rows.length;
+  document.getElementById('dc-list').innerHTML=rows.map(r=>`
+    <tr data-lat="${r.lat||''}" data-lng="${r.lng||''}"><td style="font-weight:600">${esc(r.name)}</td>
+    <td style="color:var(--muted)">${esc(r.operator)}</td>
+    <td><span class="tag tag-country">${esc(r.country)}</span></td>
+    <td style="color:var(--cyan);font-size:10px">${esc(r.type)}</td></tr>`).join('');
+}
+
+async function loadDefense(){
+  const q=document.getElementById('def-q')?.value||'';
+  const url='/api/defense'+(q?'?q='+encodeURIComponent(q):'');
+  const rows=await fetch(url).then(r=>r.json());
+  document.getElementById('b-defense').textContent=rows.length;
+  document.getElementById('def-list').innerHTML=rows.map(r=>`
+    <tr data-lat="${r.lat||''}" data-lng="${r.lng||''}"><td style="color:var(--muted);font-size:10px">#${r.rank}</td>
+    <td style="font-weight:600">${esc(r.name)}</td>
+    <td><span class="tag tag-country">${esc(r.country)}</span></td>
+    <td style="color:var(--red)">$${r.defense_revenue_usd_b}B</td></tr>`).join('');
+}
+
+async function loadRefineries(){
+  const q=document.getElementById('ref-q')?.value||'';
+  const url='/api/refineries'+(q?'?q='+encodeURIComponent(q):'');
+  const rows=await fetch(url).then(r=>r.json());
+  document.getElementById('b-ref').textContent=rows.length;
+  document.getElementById('ref-list').innerHTML=rows.map(r=>`
+    <tr data-lat="${r.lat||''}" data-lng="${r.lng||''}"><td style="font-weight:600">${esc(r.name)}</td>
+    <td style="color:var(--muted)">${esc(r.operator)}</td>
+    <td><span class="tag tag-country">${esc(r.country)}</span></td>
+    <td style="color:var(--orange)">${(r.capacity_bpd/1000).toFixed(0)}K bpd</td></tr>`).join('');
+}
+
+async function loadTelecom(){
+  const q=document.getElementById('tel-q')?.value||'';
+  const type=document.getElementById('tel-type')?.value||'';
+  const p=new URLSearchParams(); if(q)p.set('q',q); if(type)p.set('type',type);
+  const rows=await fetch('/api/telecom?'+p).then(r=>r.json());
+  document.getElementById('b-telecom').textContent=rows.length;
+  document.getElementById('tel-list').innerHTML=rows.length?rows.map(r=>`<tr data-lat="${r.lat||''}" data-lng="${r.lng||''}">
+    <td style="color:var(--muted);font-size:11px">${r.rank}</td>
+    <td><strong>${esc(r.name)}</strong><br><span style="color:var(--muted);font-size:10px">${esc(r.city||'')}</span></td>
+    <td><span class="tag tag-country">${esc(r.country)}</span></td>
+    <td style="color:#00e5cc;font-size:11px;font-weight:700">${r.subscribers_millions||'—'}M</td>
+    <td><span class="tag" style="background:rgba(0,229,204,.15);color:#00e5cc;border-color:rgba(0,229,204,.35);font-size:9px">${esc(r.type||'')}</span></td>
+  </tr>`).join(''):'<tr><td colspan="5" style="color:var(--muted)">No results</td></tr>';
+}
+
+async function loadUniversities(){
+  const q=document.getElementById('uni-q')?.value||'';
+  const country=document.getElementById('uni-country')?.value||'';
+  const type=document.getElementById('uni-type')?.value||'';
+  const p=new URLSearchParams(); if(q)p.set('q',q); if(country)p.set('country',country); if(type)p.set('type',type);
+  const rows=await fetch('/api/universities?'+p).then(r=>r.json());
+  document.getElementById('b-uni').textContent=rows.length;
+  document.getElementById('uni-list').innerHTML=rows.length?rows.map(r=>`<tr data-lat="${r.lat||''}" data-lng="${r.lng||''}">
+    <td style="color:var(--muted);font-size:11px">${r.rank}</td>
+    <td><strong>${esc(r.name)}</strong><br><span style="color:var(--muted);font-size:10px">${esc(r.city||'')}</span></td>
+    <td><span class="tag tag-country">${esc(r.country)}</span></td>
+    <td style="color:var(--muted);font-size:11px">${r.founded||''}</td>
+    <td><span class="tag" style="background:rgba(153,102,255,.2);color:#bb99ff;border-color:rgba(153,102,255,.4)">${esc(r.type||'')}</span></td>
+  </tr>`).join(''):'<tr><td colspan="5" style="color:var(--muted)">No results</td></tr>';
+  // populate country filter
+  const sel=document.getElementById('uni-country');
+  if(sel.options.length<=1){
+    const countries=[...new Set(rows.map(r=>r.country))].sort();
+    countries.forEach(c=>{const o=document.createElement('option');o.value=c;o.textContent=c;sel.appendChild(o);});
+  }
+}
+
+// ── ASK CLAUDE ───────────────────────────────────────────────
+const claudeMsgs = [];
+function appendMsg(role, text) {
+  claudeMsgs.push({role, text});
+  const box = document.getElementById('claude-msgs');
+  const d = document.createElement('div');
+  const isUser = role === 'user';
+  d.style.cssText = `align-self:${isUser?'flex-end':'flex-start'};max-width:88%;padding:7px 10px;border-radius:8px;font-size:12px;line-height:1.5;word-break:break-word;white-space:pre-wrap;background:${isUser?'rgba(0,255,136,.15)':'rgba(0,170,255,.1)'};border:1px solid ${isUser?'rgba(0,255,136,.3)':'rgba(0,170,255,.25)'};color:${isUser?'var(--accent)':'var(--fg)'};`;
+  d.textContent = text;
+  box.appendChild(d);
+  box.scrollTop = box.scrollHeight;
+}
+// ── PIN FOCUS ────────────────────────────────────────────
+function focusPin(lat, lng) {
+  if(!lat || !lng) return;
+  lat=parseFloat(lat); lng=parseFloat(lng);
+  // Rotation to bring lat/lng to face camera (+z axis)
+  const phi=(90-lat)*Math.PI/180;
+  const theta=(lng+180)*Math.PI/180;
+  targetRotY = Math.PI/2 - theta;
+  targetRotX = lat*Math.PI/180*0.6;
+  // Highlight pin position
+  const x=-(Math.sin(phi)*Math.cos(theta));
+  const y=Math.cos(phi);
+  const z=Math.sin(phi)*Math.sin(theta);
+  // Clear old highlight
+  while(highlightGroup.children.length) highlightGroup.remove(highlightGroup.children[0]);
+  // Bright white dot
+  const dot=new THREE.Mesh(new THREE.SphereGeometry(0.022,8,8),new THREE.MeshBasicMaterial({color:0xffffff}));
+  dot.position.set(x,y,z); highlightGroup.add(dot);
+  // Halo ring
+  const ring=new THREE.Mesh(new THREE.TorusGeometry(0.038,0.005,4,32),new THREE.MeshBasicMaterial({color:0xffff88,transparent:true,opacity:.9}));
+  ring.position.set(x,y,z);
+  const up=new THREE.Vector3(x,y,z).normalize();
+  ring.quaternion.setFromUnitVectors(new THREE.Vector3(0,0,1),up);
+  highlightGroup.add(ring);
+  hlPulse=0;
+  // Table row highlight
+  document.querySelectorAll('.pin-focused').forEach(el=>el.classList.remove('pin-focused'));
+  // Auto-resume spin after 2.5s
+  clearTimeout(window._resumeTimer);
+  window._resumeTimer=setTimeout(()=>{
+    targetRotY=null; targetRotX=null; autoSpin=true;
+    // Fade out highlight
+    const fadeInt=setInterval(()=>{
+      highlightGroup.children.forEach(c=>{
+        if(c.material){c.material.opacity=Math.max(0,(c.material.opacity||1)-0.05);c.material.transparent=true;}
+      });
+      if(highlightGroup.children.length&&(highlightGroup.children[0].material?.opacity||0)<=0){
+        while(highlightGroup.children.length) highlightGroup.remove(highlightGroup.children[0]);
+        clearInterval(fadeInt);
+      }
+    },30);
+  },2500);
+}
+
+// Delegated click on any table row with data-lat
+document.addEventListener('click', e=>{
+  const tr=e.target.closest('tr[data-lat]');
+  if(!tr) return;
+  const lat=tr.dataset.lat, lng=tr.dataset.lng;
+  if(!lat||!lng||lat==='null'||lng==='null') return;
+  document.querySelectorAll('.pin-focused').forEach(el=>el.classList.remove('pin-focused'));
+  tr.classList.add('pin-focused');
+  focusPin(lat,lng);
+});
+
+// Click globe to resume spin
+document.getElementById('globe-wrap')?.addEventListener('mousedown', ()=>{ targetRotY=null; targetRotX=null; autoSpin=true; });
+
+// ── COUNTRIES DATA ───────────────────────────────────────
+function flag(code){return String.fromCodePoint(...[...code.toUpperCase()].map(c=>c.charCodeAt(0)+127397));}
+const COUNTRIES_DATA=[
+  {code:'AF',name:'Afghanistan',capital:'Kabul',region:'Asia',lat:33.93,lng:67.71},
+  {code:'AL',name:'Albania',capital:'Tirana',region:'Europe',lat:41.15,lng:20.17},
+  {code:'DZ',name:'Algeria',capital:'Algiers',region:'Africa',lat:28.03,lng:1.66},
+  {code:'AD',name:'Andorra',capital:'Andorra la Vella',region:'Europe',lat:42.51,lng:1.52},
+  {code:'AO',name:'Angola',capital:'Luanda',region:'Africa',lat:-11.20,lng:17.87},
+  {code:'AG',name:'Antigua and Barbuda',capital:'Saint Johns',region:'Americas',lat:17.07,lng:-61.80},
+  {code:'AR',name:'Argentina',capital:'Buenos Aires',region:'Americas',lat:-38.42,lng:-63.62},
+  {code:'AM',name:'Armenia',capital:'Yerevan',region:'Asia',lat:40.07,lng:45.04},
+  {code:'AU',name:'Australia',capital:'Canberra',region:'Oceania',lat:-25.27,lng:133.78},
+  {code:'AT',name:'Austria',capital:'Vienna',region:'Europe',lat:47.52,lng:14.55},
+  {code:'AZ',name:'Azerbaijan',capital:'Baku',region:'Asia',lat:40.14,lng:47.58},
+  {code:'BS',name:'Bahamas',capital:'Nassau',region:'Americas',lat:25.03,lng:-77.40},
+  {code:'BH',name:'Bahrain',capital:'Manama',region:'Asia',lat:26.00,lng:50.55},
+  {code:'BD',name:'Bangladesh',capital:'Dhaka',region:'Asia',lat:23.68,lng:90.36},
+  {code:'BB',name:'Barbados',capital:'Bridgetown',region:'Americas',lat:13.19,lng:-59.54},
+  {code:'BY',name:'Belarus',capital:'Minsk',region:'Europe',lat:53.71,lng:27.95},
+  {code:'BE',name:'Belgium',capital:'Brussels',region:'Europe',lat:50.50,lng:4.47},
+  {code:'BZ',name:'Belize',capital:'Belmopan',region:'Americas',lat:17.19,lng:-88.50},
+  {code:'BJ',name:'Benin',capital:'Porto-Novo',region:'Africa',lat:9.31,lng:2.32},
+  {code:'BT',name:'Bhutan',capital:'Thimphu',region:'Asia',lat:27.51,lng:90.43},
+  {code:'BO',name:'Bolivia',capital:'Sucre',region:'Americas',lat:-16.29,lng:-63.59},
+  {code:'BA',name:'Bosnia and Herzegovina',capital:'Sarajevo',region:'Europe',lat:43.92,lng:17.68},
+  {code:'BW',name:'Botswana',capital:'Gaborone',region:'Africa',lat:-22.33,lng:24.68},
+  {code:'BR',name:'Brazil',capital:'Brasilia',region:'Americas',lat:-14.24,lng:-51.93},
+  {code:'BN',name:'Brunei',capital:'Bandar Seri Begawan',region:'Asia',lat:4.94,lng:114.95},
+  {code:'BG',name:'Bulgaria',capital:'Sofia',region:'Europe',lat:42.73,lng:25.49},
+  {code:'BF',name:'Burkina Faso',capital:'Ouagadougou',region:'Africa',lat:12.36,lng:-1.53},
+  {code:'BI',name:'Burundi',capital:'Gitega',region:'Africa',lat:-3.37,lng:29.92},
+  {code:'CV',name:'Cabo Verde',capital:'Praia',region:'Africa',lat:16.00,lng:-24.01},
+  {code:'KH',name:'Cambodia',capital:'Phnom Penh',region:'Asia',lat:12.57,lng:104.99},
+  {code:'CM',name:'Cameroon',capital:'Yaounde',region:'Africa',lat:7.37,lng:12.35},
+  {code:'CA',name:'Canada',capital:'Ottawa',region:'Americas',lat:56.13,lng:-106.35},
+  {code:'CF',name:'Central African Republic',capital:'Bangui',region:'Africa',lat:6.61,lng:20.94},
+  {code:'TD',name:'Chad',capital:'NDjamena',region:'Africa',lat:15.45,lng:18.73},
+  {code:'CL',name:'Chile',capital:'Santiago',region:'Americas',lat:-35.68,lng:-71.54},
+  {code:'CN',name:'China',capital:'Beijing',region:'Asia',lat:35.86,lng:104.20},
+  {code:'CO',name:'Colombia',capital:'Bogota',region:'Americas',lat:4.57,lng:-74.30},
+  {code:'KM',name:'Comoros',capital:'Moroni',region:'Africa',lat:-11.65,lng:43.33},
+  {code:'CD',name:'Congo DRC',capital:'Kinshasa',region:'Africa',lat:-4.04,lng:21.76},
+  {code:'CG',name:'Congo Republic',capital:'Brazzaville',region:'Africa',lat:-0.23,lng:15.83},
+  {code:'CR',name:'Costa Rica',capital:'San Jose',region:'Americas',lat:9.75,lng:-83.75},
+  {code:'CI',name:'Cote dIvoire',capital:'Yamoussoukro',region:'Africa',lat:7.54,lng:-5.55},
+  {code:'HR',name:'Croatia',capital:'Zagreb',region:'Europe',lat:45.10,lng:16.45},
+  {code:'CU',name:'Cuba',capital:'Havana',region:'Americas',lat:21.52,lng:-77.78},
+  {code:'CY',name:'Cyprus',capital:'Nicosia',region:'Europe',lat:35.13,lng:33.43},
+  {code:'CZ',name:'Czech Republic',capital:'Prague',region:'Europe',lat:49.82,lng:15.47},
+  {code:'DK',name:'Denmark',capital:'Copenhagen',region:'Europe',lat:56.26,lng:9.50},
+  {code:'DJ',name:'Djibouti',capital:'Djibouti',region:'Africa',lat:11.83,lng:42.59},
+  {code:'DM',name:'Dominica',capital:'Roseau',region:'Americas',lat:15.41,lng:-61.37},
+  {code:'DO',name:'Dominican Republic',capital:'Santo Domingo',region:'Americas',lat:18.74,lng:-70.16},
+  {code:'EC',name:'Ecuador',capital:'Quito',region:'Americas',lat:-1.83,lng:-78.18},
+  {code:'EG',name:'Egypt',capital:'Cairo',region:'Africa',lat:26.82,lng:30.80},
+  {code:'SV',name:'El Salvador',capital:'San Salvador',region:'Americas',lat:13.79,lng:-88.90},
+  {code:'GQ',name:'Equatorial Guinea',capital:'Malabo',region:'Africa',lat:1.65,lng:10.27},
+  {code:'ER',name:'Eritrea',capital:'Asmara',region:'Africa',lat:15.18,lng:39.78},
+  {code:'EE',name:'Estonia',capital:'Tallinn',region:'Europe',lat:58.60,lng:25.01},
+  {code:'SZ',name:'Eswatini',capital:'Mbabane',region:'Africa',lat:-26.52,lng:31.47},
+  {code:'ET',name:'Ethiopia',capital:'Addis Ababa',region:'Africa',lat:9.15,lng:40.49},
+  {code:'FJ',name:'Fiji',capital:'Suva',region:'Oceania',lat:-17.71,lng:178.07},
+  {code:'FI',name:'Finland',capital:'Helsinki',region:'Europe',lat:61.92,lng:25.75},
+  {code:'FR',name:'France',capital:'Paris',region:'Europe',lat:46.23,lng:2.21},
+  {code:'GA',name:'Gabon',capital:'Libreville',region:'Africa',lat:-0.80,lng:11.61},
+  {code:'GM',name:'Gambia',capital:'Banjul',region:'Africa',lat:13.44,lng:-15.31},
+  {code:'GE',name:'Georgia',capital:'Tbilisi',region:'Asia',lat:42.32,lng:43.36},
+  {code:'DE',name:'Germany',capital:'Berlin',region:'Europe',lat:51.17,lng:10.45},
+  {code:'GH',name:'Ghana',capital:'Accra',region:'Africa',lat:7.95,lng:-1.02},
+  {code:'GR',name:'Greece',capital:'Athens',region:'Europe',lat:39.07,lng:21.82},
+  {code:'GD',name:'Grenada',capital:'Saint Georges',region:'Americas',lat:12.12,lng:-61.68},
+  {code:'GT',name:'Guatemala',capital:'Guatemala City',region:'Americas',lat:15.78,lng:-90.23},
+  {code:'GN',name:'Guinea',capital:'Conakry',region:'Africa',lat:9.95,lng:-11.24},
+  {code:'GW',name:'Guinea-Bissau',capital:'Bissau',region:'Africa',lat:11.80,lng:-15.18},
+  {code:'GY',name:'Guyana',capital:'Georgetown',region:'Americas',lat:4.86,lng:-58.93},
+  {code:'HT',name:'Haiti',capital:'Port-au-Prince',region:'Americas',lat:18.97,lng:-72.29},
+  {code:'HN',name:'Honduras',capital:'Tegucigalpa',region:'Americas',lat:15.20,lng:-86.24},
+  {code:'HU',name:'Hungary',capital:'Budapest',region:'Europe',lat:47.16,lng:19.50},
+  {code:'IS',name:'Iceland',capital:'Reykjavik',region:'Europe',lat:64.96,lng:-19.02},
+  {code:'IN',name:'India',capital:'New Delhi',region:'Asia',lat:20.59,lng:78.96},
+  {code:'ID',name:'Indonesia',capital:'Jakarta',region:'Asia',lat:-0.79,lng:113.92},
+  {code:'IR',name:'Iran',capital:'Tehran',region:'Asia',lat:32.43,lng:53.69},
+  {code:'IQ',name:'Iraq',capital:'Baghdad',region:'Asia',lat:33.22,lng:43.68},
+  {code:'IE',name:'Ireland',capital:'Dublin',region:'Europe',lat:53.41,lng:-8.24},
+  {code:'IL',name:'Israel',capital:'Jerusalem',region:'Asia',lat:31.05,lng:34.85},
+  {code:'IT',name:'Italy',capital:'Rome',region:'Europe',lat:41.87,lng:12.57},
+  {code:'JM',name:'Jamaica',capital:'Kingston',region:'Americas',lat:18.11,lng:-77.30},
+  {code:'JP',name:'Japan',capital:'Tokyo',region:'Asia',lat:36.20,lng:138.25},
+  {code:'JO',name:'Jordan',capital:'Amman',region:'Asia',lat:30.59,lng:36.24},
+  {code:'KZ',name:'Kazakhstan',capital:'Astana',region:'Asia',lat:48.02,lng:66.92},
+  {code:'KE',name:'Kenya',capital:'Nairobi',region:'Africa',lat:-0.02,lng:37.91},
+  {code:'KI',name:'Kiribati',capital:'Tarawa',region:'Oceania',lat:1.87,lng:-157.36},
+  {code:'KW',name:'Kuwait',capital:'Kuwait City',region:'Asia',lat:29.31,lng:47.48},
+  {code:'KG',name:'Kyrgyzstan',capital:'Bishkek',region:'Asia',lat:41.20,lng:74.77},
+  {code:'LA',name:'Laos',capital:'Vientiane',region:'Asia',lat:19.86,lng:102.50},
+  {code:'LV',name:'Latvia',capital:'Riga',region:'Europe',lat:56.88,lng:24.60},
+  {code:'LB',name:'Lebanon',capital:'Beirut',region:'Asia',lat:33.85,lng:35.86},
+  {code:'LS',name:'Lesotho',capital:'Maseru',region:'Africa',lat:-29.61,lng:28.23},
+  {code:'LR',name:'Liberia',capital:'Monrovia',region:'Africa',lat:6.43,lng:-9.43},
+  {code:'LY',name:'Libya',capital:'Tripoli',region:'Africa',lat:26.34,lng:17.23},
+  {code:'LI',name:'Liechtenstein',capital:'Vaduz',region:'Europe',lat:47.17,lng:9.56},
+  {code:'LT',name:'Lithuania',capital:'Vilnius',region:'Europe',lat:55.17,lng:23.88},
+  {code:'LU',name:'Luxembourg',capital:'Luxembourg City',region:'Europe',lat:49.82,lng:6.13},
+  {code:'MG',name:'Madagascar',capital:'Antananarivo',region:'Africa',lat:-18.77,lng:46.87},
+  {code:'MW',name:'Malawi',capital:'Lilongwe',region:'Africa',lat:-13.25,lng:34.30},
+  {code:'MY',name:'Malaysia',capital:'Kuala Lumpur',region:'Asia',lat:4.21,lng:108.96},
+  {code:'MV',name:'Maldives',capital:'Male',region:'Asia',lat:3.20,lng:73.22},
+  {code:'ML',name:'Mali',capital:'Bamako',region:'Africa',lat:17.57,lng:-3.99},
+  {code:'MT',name:'Malta',capital:'Valletta',region:'Europe',lat:35.94,lng:14.38},
+  {code:'MH',name:'Marshall Islands',capital:'Majuro',region:'Oceania',lat:7.13,lng:171.18},
+  {code:'MR',name:'Mauritania',capital:'Nouakchott',region:'Africa',lat:21.01,lng:-10.94},
+  {code:'MU',name:'Mauritius',capital:'Port Louis',region:'Africa',lat:-20.35,lng:57.55},
+  {code:'MX',name:'Mexico',capital:'Mexico City',region:'Americas',lat:23.63,lng:-102.55},
+  {code:'FM',name:'Micronesia',capital:'Palikir',region:'Oceania',lat:7.43,lng:150.55},
+  {code:'MD',name:'Moldova',capital:'Chisinau',region:'Europe',lat:47.41,lng:28.37},
+  {code:'MC',name:'Monaco',capital:'Monaco',region:'Europe',lat:43.74,lng:7.41},
+  {code:'MN',name:'Mongolia',capital:'Ulaanbaatar',region:'Asia',lat:46.86,lng:103.85},
+  {code:'ME',name:'Montenegro',capital:'Podgorica',region:'Europe',lat:42.71,lng:19.37},
+  {code:'MA',name:'Morocco',capital:'Rabat',region:'Africa',lat:31.79,lng:-7.09},
+  {code:'MZ',name:'Mozambique',capital:'Maputo',region:'Africa',lat:-18.67,lng:35.53},
+  {code:'MM',name:'Myanmar',capital:'Naypyidaw',region:'Asia',lat:21.92,lng:95.96},
+  {code:'NA',name:'Namibia',capital:'Windhoek',region:'Africa',lat:-22.96,lng:18.49},
+  {code:'NR',name:'Nauru',capital:'Yaren',region:'Oceania',lat:-0.52,lng:166.93},
+  {code:'NP',name:'Nepal',capital:'Kathmandu',region:'Asia',lat:28.39,lng:84.12},
+  {code:'NL',name:'Netherlands',capital:'Amsterdam',region:'Europe',lat:52.13,lng:5.29},
+  {code:'NZ',name:'New Zealand',capital:'Wellington',region:'Oceania',lat:-40.90,lng:174.89},
+  {code:'NI',name:'Nicaragua',capital:'Managua',region:'Americas',lat:12.87,lng:-85.21},
+  {code:'NE',name:'Niger',capital:'Niamey',region:'Africa',lat:17.61,lng:8.08},
+  {code:'NG',name:'Nigeria',capital:'Abuja',region:'Africa',lat:9.08,lng:8.68},
+  {code:'KP',name:'North Korea',capital:'Pyongyang',region:'Asia',lat:40.34,lng:127.51},
+  {code:'MK',name:'North Macedonia',capital:'Skopje',region:'Europe',lat:41.61,lng:21.75},
+  {code:'NO',name:'Norway',capital:'Oslo',region:'Europe',lat:60.47,lng:8.47},
+  {code:'OM',name:'Oman',capital:'Muscat',region:'Asia',lat:21.51,lng:55.92},
+  {code:'PK',name:'Pakistan',capital:'Islamabad',region:'Asia',lat:30.38,lng:69.35},
+  {code:'PW',name:'Palau',capital:'Ngerulmud',region:'Oceania',lat:7.52,lng:134.58},
+  {code:'PA',name:'Panama',capital:'Panama City',region:'Americas',lat:8.54,lng:-80.78},
+  {code:'PG',name:'Papua New Guinea',capital:'Port Moresby',region:'Oceania',lat:-6.31,lng:143.96},
+  {code:'PY',name:'Paraguay',capital:'Asuncion',region:'Americas',lat:-23.44,lng:-58.44},
+  {code:'PE',name:'Peru',capital:'Lima',region:'Americas',lat:-9.19,lng:-75.02},
+  {code:'PH',name:'Philippines',capital:'Manila',region:'Asia',lat:12.88,lng:121.77},
+  {code:'PL',name:'Poland',capital:'Warsaw',region:'Europe',lat:51.92,lng:19.15},
+  {code:'PT',name:'Portugal',capital:'Lisbon',region:'Europe',lat:39.40,lng:-8.22},
+  {code:'QA',name:'Qatar',capital:'Doha',region:'Asia',lat:25.35,lng:51.18},
+  {code:'RO',name:'Romania',capital:'Bucharest',region:'Europe',lat:45.94,lng:24.97},
+  {code:'RU',name:'Russia',capital:'Moscow',region:'Europe',lat:61.52,lng:105.32},
+  {code:'RW',name:'Rwanda',capital:'Kigali',region:'Africa',lat:-1.94,lng:29.87},
+  {code:'KN',name:'Saint Kitts and Nevis',capital:'Basseterre',region:'Americas',lat:17.36,lng:-62.78},
+  {code:'LC',name:'Saint Lucia',capital:'Castries',region:'Americas',lat:13.91,lng:-60.98},
+  {code:'VC',name:'Saint Vincent and Grenadines',capital:'Kingstown',region:'Americas',lat:13.25,lng:-61.20},
+  {code:'WS',name:'Samoa',capital:'Apia',region:'Oceania',lat:-13.76,lng:-172.10},
+  {code:'SM',name:'San Marino',capital:'San Marino',region:'Europe',lat:43.94,lng:12.46},
+  {code:'ST',name:'Sao Tome and Principe',capital:'Sao Tome',region:'Africa',lat:0.19,lng:6.61},
+  {code:'SA',name:'Saudi Arabia',capital:'Riyadh',region:'Asia',lat:23.89,lng:45.08},
+  {code:'SN',name:'Senegal',capital:'Dakar',region:'Africa',lat:14.50,lng:-14.45},
+  {code:'RS',name:'Serbia',capital:'Belgrade',region:'Europe',lat:44.02,lng:21.01},
+  {code:'SC',name:'Seychelles',capital:'Victoria',region:'Africa',lat:-4.68,lng:55.49},
+  {code:'SL',name:'Sierra Leone',capital:'Freetown',region:'Africa',lat:8.46,lng:-11.78},
+  {code:'SG',name:'Singapore',capital:'Singapore',region:'Asia',lat:1.35,lng:103.82},
+  {code:'SK',name:'Slovakia',capital:'Bratislava',region:'Europe',lat:48.67,lng:19.70},
+  {code:'SI',name:'Slovenia',capital:'Ljubljana',region:'Europe',lat:46.15,lng:14.99},
+  {code:'SB',name:'Solomon Islands',capital:'Honiara',region:'Oceania',lat:-9.65,lng:160.16},
+  {code:'SO',name:'Somalia',capital:'Mogadishu',region:'Africa',lat:5.15,lng:46.20},
+  {code:'ZA',name:'South Africa',capital:'Pretoria',region:'Africa',lat:-30.56,lng:22.94},
+  {code:'SS',name:'South Sudan',capital:'Juba',region:'Africa',lat:6.88,lng:31.31},
+  {code:'ES',name:'Spain',capital:'Madrid',region:'Europe',lat:40.46,lng:-3.75},
+  {code:'LK',name:'Sri Lanka',capital:'Sri Jayawardenepura Kotte',region:'Asia',lat:7.87,lng:80.77},
+  {code:'SD',name:'Sudan',capital:'Khartoum',region:'Africa',lat:12.86,lng:30.22},
+  {code:'SR',name:'Suriname',capital:'Paramaribo',region:'Americas',lat:3.92,lng:-56.03},
+  {code:'SE',name:'Sweden',capital:'Stockholm',region:'Europe',lat:60.13,lng:18.64},
+  {code:'CH',name:'Switzerland',capital:'Bern',region:'Europe',lat:46.82,lng:8.23},
+  {code:'SY',name:'Syria',capital:'Damascus',region:'Asia',lat:34.80,lng:38.10},
+  {code:'TW',name:'Taiwan',capital:'Taipei',region:'Asia',lat:23.70,lng:121.00},
+  {code:'TJ',name:'Tajikistan',capital:'Dushanbe',region:'Asia',lat:38.86,lng:71.28},
+  {code:'TZ',name:'Tanzania',capital:'Dodoma',region:'Africa',lat:-6.37,lng:34.89},
+  {code:'TH',name:'Thailand',capital:'Bangkok',region:'Asia',lat:15.87,lng:100.99},
+  {code:'TL',name:'Timor-Leste',capital:'Dili',region:'Asia',lat:-8.87,lng:125.73},
+  {code:'TG',name:'Togo',capital:'Lome',region:'Africa',lat:8.62,lng:0.82},
+  {code:'TO',name:'Tonga',capital:'Nukualofa',region:'Oceania',lat:-21.18,lng:-175.20},
+  {code:'TT',name:'Trinidad and Tobago',capital:'Port of Spain',region:'Americas',lat:10.69,lng:-61.22},
+  {code:'TN',name:'Tunisia',capital:'Tunis',region:'Africa',lat:33.89,lng:9.54},
+  {code:'TR',name:'Turkey',capital:'Ankara',region:'Asia',lat:38.96,lng:35.24},
+  {code:'TM',name:'Turkmenistan',capital:'Ashgabat',region:'Asia',lat:38.97,lng:59.56},
+  {code:'TV',name:'Tuvalu',capital:'Funafuti',region:'Oceania',lat:-7.11,lng:177.65},
+  {code:'UG',name:'Uganda',capital:'Kampala',region:'Africa',lat:1.37,lng:32.29},
+  {code:'UA',name:'Ukraine',capital:'Kyiv',region:'Europe',lat:48.38,lng:31.17},
+  {code:'AE',name:'United Arab Emirates',capital:'Abu Dhabi',region:'Asia',lat:23.42,lng:53.85},
+  {code:'GB',name:'United Kingdom',capital:'London',region:'Europe',lat:55.38,lng:-3.44},
+  {code:'US',name:'United States',capital:'Washington DC',region:'Americas',lat:37.09,lng:-95.71},
+  {code:'UY',name:'Uruguay',capital:'Montevideo',region:'Americas',lat:-32.52,lng:-55.77},
+  {code:'UZ',name:'Uzbekistan',capital:'Tashkent',region:'Asia',lat:41.38,lng:64.59},
+  {code:'VU',name:'Vanuatu',capital:'Port Vila',region:'Oceania',lat:-15.38,lng:166.96},
+  {code:'VA',name:'Vatican City',capital:'Vatican City',region:'Europe',lat:41.90,lng:12.45},
+  {code:'VE',name:'Venezuela',capital:'Caracas',region:'Americas',lat:6.42,lng:-66.59},
+  {code:'VN',name:'Vietnam',capital:'Hanoi',region:'Asia',lat:14.06,lng:108.28},
+  {code:'YE',name:'Yemen',capital:'Sanaa',region:'Asia',lat:15.55,lng:48.52},
+  {code:'ZM',name:'Zambia',capital:'Lusaka',region:'Africa',lat:-13.13,lng:27.85},
+  {code:'ZW',name:'Zimbabwe',capital:'Harare',region:'Africa',lat:-19.02,lng:29.15},
+].map(c=>({...c,flag:flag(c.code)}));
+
+function renderCountries(){
+  const q=(document.getElementById('country-q')?.value||'').toLowerCase();
+  const region=document.getElementById('country-region')?.value||'';
+  const filtered=COUNTRIES_DATA.filter(c=>
+    (!q || c.name.toLowerCase().includes(q) || c.capital.toLowerCase().includes(q)) &&
+    (!region || c.region===region)
+  );
+  document.getElementById('b-countries').textContent=filtered.length;
+  document.getElementById('country-list').innerHTML=filtered.length?filtered.map(c=>`<tr data-lat="${c.lat||''}" data-lng="${c.lng||''}"
+    <td style="font-size:20px;text-align:center;line-height:1">${c.flag}</td>
+    <td><strong>${esc(c.name)}</strong></td>
+    <td><span class="tag" style="background:rgba(68,187,255,.15);color:#44bbff;border-color:rgba(68,187,255,.3);font-size:9px">${esc(c.region)}</span></td>
+    <td style="color:var(--muted);font-size:11px">${esc(c.capital)}</td>
+  </tr>`).join(''):'<tr><td colspan="4" style="color:var(--muted)">No results</td></tr>';
+}
+
+// visitor context — loaded once, cached
+let visitorCtx = null;
+async function loadVisitorCtx() {
+  if (visitorCtx) return visitorCtx;
+  try {
+    const [summary, cities] = await Promise.all([
+      fetch('/api/visits/summary').then(r=>r.json()),
+      fetch('/api/network-cities').then(r=>r.json())
+    ]);
+    const byCountry = (summary.by_country||[]).slice(0,30).map(r=>`${r.country_geo||'Unknown'}: ${r.count}`).join(', ');
+    const topCities = (cities||[]).slice(0,20).map(r=>`${r.city} (${r.country}): ${r.visits} visits`).join(', ');
+    const topPaths = (summary.by_path||[]).slice(0,10).map(r=>`${r.path}: ${r.count}`).join(', ');
+    visitorCtx = `LIVE VISITOR DATA (nsa.je9.us network — ${summary.total_hits||0} total hits, ${summary.unique_visitors||0} unique IPs, ${summary.countries||0} countries):
+TOP COUNTRIES: ${byCountry}
+TOP CITIES: ${topCities}
+TOP PAGES: ${topPaths}`;
+  } catch(e) {
+    visitorCtx = 'Visitor data unavailable.';
+  }
+  return visitorCtx;
+}
+
+async function sendClaude() {
+  const inp = document.getElementById('claude-input');
+  const msg = inp.value.trim();
+  if (!msg) return;
+  inp.value = '';
+  appendMsg('user', msg);
+  const thinking = document.createElement('div');
+  thinking.id = 'claude-thinking';
+  thinking.style.cssText = 'align-self:flex-start;color:var(--muted);font-size:11px;font-style:italic;padding:4px 0';
+  thinking.textContent = 'Analyzing...';
+  document.getElementById('claude-msgs').appendChild(thinking);
+  try {
+    const history = claudeMsgs.slice(-10).map(m=>({role:m.role==='user'?'user':'assistant',content:m.text}));
+    const r = await fetch('https://claudeamour.us/claude/chat',{
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({
+        message: msg,
+        system: 'You are an intelligence analyst for a geospatial operations dashboard (nsa.je9.us). You have access to data on US military bases, embassies, elite military units, world airports, Fortune 250 corporations, top 100 banks, cloud data centers, defense contractors, oil refineries, and top 100 universities. Answer concisely and analytically.\n\n' + await loadVisitorCtx(),
+        history: history.slice(0,-1)
+      })
+    });
+    const j = await r.json();
+    const t = document.getElementById('claude-thinking');
+    if (t) t.remove();
+    const text = j.reply || j.response || j.error || 'No response';
+    appendMsg('assistant', text);
+    if (j.usage || j.model) {
+      const box = document.getElementById('claude-msgs');
+      const u = j.usage || {};
+      const cost = j.est_cost_usd ? '$'+j.est_cost_usd.toFixed(4) : '';
+      const meta = document.createElement('div');
+      meta.style.cssText = 'display:block;font-size:9px;color:#4a8fa8;padding:2px 10px 4px;letter-spacing:.06em;border-left:2px solid rgba(0,170,255,.2);margin:0 0 4px 0;';
+      meta.textContent = [
+        j.model ? j.model.replace('claude-','') : '',
+        u.input_tokens ? u.input_tokens+'in' : '',
+        u.output_tokens ? u.output_tokens+'out' : '',
+        cost
+      ].filter(Boolean).join(' · ');
+      box.appendChild(meta);
+      box.scrollTop = box.scrollHeight;
+    }
+  } catch(e) {
+    const t = document.getElementById('claude-thinking');
+    if (t) t.remove();
+    appendMsg('assistant', 'Connection error — try again.');
+  }
+}
+
+async function init(){
+  const m=await fetch('/api/meta').then(r=>r.json());
+  document.getElementById('b-inst').textContent=m.installations;
+  document.getElementById('b-units').textContent=m.units;
+  document.getElementById('b-visits').textContent=m.unique_visitors||0;
+  // pre-fill static badges
+  document.getElementById('b-emb').textContent=179;
+  document.getElementById('b-airports').textContent=194;
+  document.getElementById('b-corps').textContent=250;
+  document.getElementById('b-banks').textContent=100;
+  document.getElementById('b-dc').textContent=83;
+  document.getElementById('b-defense').textContent=60;
+  document.getElementById('b-ref').textContent=61;
+  document.getElementById('b-uni').textContent=100;
+  document.getElementById('b-telecom').textContent=65;
+  document.getElementById('b-countries').textContent=195;
+  document.getElementById('stat-grid').innerHTML=`
+    <div class="stat-card"><div class="stat-lbl">Installations</div><div class="stat-val">${m.installations}</div><div class="stat-sub">global bases</div></div>
+    <div class="stat-card"><div class="stat-lbl">Elite Units</div><div class="stat-val">${m.units}</div><div class="stat-sub">SOF worldwide</div></div>
+    <div class="stat-card"><div class="stat-lbl">Missions</div><div class="stat-val">${m.missions}</div><div class="stat-sub">operations</div></div>
+    <div class="stat-card"><div class="stat-lbl">Countries</div><div class="stat-val">${m.countries.length}</div><div class="stat-sub">covered</div></div>`;
+  const sel=document.getElementById('inst-country');
+  m.countries.forEach(c=>{const o=document.createElement('option');o.value=c;o.textContent=c;sel.appendChild(o);});
+  const usel=document.getElementById('unit-country');
+  m.countries.forEach(c=>{const o=document.createElement('option');o.value=c;o.textContent=c;usel.appendChild(o);});
+  const missions=await fetch('/api/missions').then(r=>r.json());
+  const active=missions.filter(r=>r.status==='ACTIVE'||r.status==='CRITICAL').slice(0,5);
+  document.getElementById('active-missions').innerHTML=active.length?active.map(r=>`
+    <div class="mission-card ${esc(r.status)}">
+      <div class="ms-status st-${esc(r.status)}">${esc(r.status)}</div>
+      <div class="ms-title">${esc(r.title)}</div>
+      <div class="ms-meta">${r.location?'📍 '+esc(r.location):''}
+    </div></div>`).join(''):`<p style="color:var(--muted);font-size:11px">No active missions.</p>`;
+  loadGlobeFor('globe');
+}
+
+// Modals
+function openModal(id){document.getElementById(id).classList.add('open');}
+function closeModal(id){document.getElementById(id).classList.remove('open');}
+async function saveInst(){
+  const b={country:document.getElementById('i-country').value,branch:document.getElementById('i-branch').value,name:document.getElementById('i-name').value,address:document.getElementById('i-address').value,lat:parseFloat(document.getElementById('i-lat').value)||null,lng:parseFloat(document.getElementById('i-lng').value)||null,command_name:document.getElementById('i-command').value,website:document.getElementById('i-website').value,notes:document.getElementById('i-notes').value};
+  await fetch('/api/installations',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(b)});
+  closeModal('modal-install'); loadInst(); loadGlobeFor('installations'); init();
+}
+async function saveUnit(){
+  const b={country:document.getElementById('u-country').value,branch:document.getElementById('u-branch').value,name:document.getElementById('u-name').value,nickname:document.getElementById('u-nickname').value,type:document.getElementById('u-type').value,founded:document.getElementById('u-founded').value,home_base:document.getElementById('u-base').value,motto:document.getElementById('u-motto').value,description:document.getElementById('u-desc').value};
+  await fetch('/api/units',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(b)});
+  closeModal('modal-unit'); loadUnits(); init();
+}
+async function saveMission(){
+  const b={title:document.getElementById('m-title').value,status:document.getElementById('m-status').value,priority:document.getElementById('m-priority').value,location:document.getElementById('m-loc').value,timezone:document.getElementById('m-tz').value,lat:parseFloat(document.getElementById('m-lat').value)||null,lng:parseFloat(document.getElementById('m-lng').value)||null,assigned_to:document.getElementById('m-assigned').value,objective:document.getElementById('m-obj').value};
+  await fetch('/api/missions',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(b)});
+  closeModal('modal-mission'); loadMissions(); loadGlobeFor('missions'); init();
+}
+
+init();
+</script>
+</body>
+</html>

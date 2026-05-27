@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>JE9 VisitMap</title>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%;background:#020810;overflow:hidden;font-family:'Courier New',monospace;color:#c8e0f0;}
+canvas#globe{display:block;position:fixed;inset:0;width:100%;height:100%;z-index:0;}
+.overlay{position:fixed;inset:0;z-index:10;display:flex;flex-direction:column;align-items:center;justify-content:center;pointer-events:none;}
+.nsa-seal{font-size:3.5rem;color:#00ff88;text-shadow:0 0 40px #00ff88,0 0 80px rgba(0,255,136,.3);text-align:center;}
+.nsa-title{font-size:1.6rem;font-weight:700;letter-spacing:.35em;color:#00ff88;text-shadow:0 0 20px #00ff88;text-transform:uppercase;margin-top:8px;text-align:center;}
+.nsa-sub{font-size:.7rem;letter-spacing:.25em;color:#4a7a9b;text-transform:uppercase;margin-top:4px;text-align:center;margin-bottom:32px;}
+.zulu-label{font-size:.6rem;letter-spacing:.25em;color:#4a7a9b;text-transform:uppercase;text-align:center;}
+.zulu-time{font-size:2.4rem;color:#00ff88;font-weight:700;letter-spacing:.08em;text-shadow:0 0 20px #00ff88;font-variant-numeric:tabular-nums;text-align:center;}
+.zulu-date{font-size:.7rem;color:#4a7a9b;letter-spacing:.15em;margin-top:3px;text-align:center;margin-bottom:40px;}
+.access-btn{pointer-events:all;cursor:pointer;padding:14px 52px;border:2px solid #00ff88;background:rgba(0,255,136,.07);color:#00ff88;font-family:'Courier New',monospace;font-size:.9rem;font-weight:700;letter-spacing:.25em;text-transform:uppercase;text-decoration:none;display:inline-block;box-shadow:0 0 30px rgba(0,255,136,.5),inset 0 0 24px rgba(0,255,136,.1);transition:all .2s;}
+.access-btn:hover{background:rgba(0,255,136,.18);box-shadow:0 0 60px rgba(0,255,136,.8),inset 0 0 30px rgba(0,255,136,.15);}
+.classified-strip{position:fixed;bottom:0;left:0;right:0;z-index:10;background:rgba(255,51,68,.12);border-top:1px solid rgba(255,51,68,.3);padding:4px 0;text-align:center;font-size:.65rem;letter-spacing:.25em;color:#ff3344;text-transform:uppercase;}
+.scanline{position:fixed;inset:0;z-index:5;background:repeating-linear-gradient(0deg,transparent,transparent 2px,rgba(0,0,0,.03) 2px,rgba(0,0,0,.03) 4px);pointer-events:none;}
+</style>
+</head>
+<body>
+<canvas id="globe"></canvas>
+<div class="scanline"></div>
+<div class="overlay">
+  <div class="nsa-seal">⬡</div>
+  <div class="nsa-title">JE9 VisitMap</div>
+  <div class="nsa-sub">Live Visitor Location Map</div>
+  <div class="zulu-label">ZULU TIME</div>
+  <div class="zulu-time" id="zulu-time">--:--:--Z</div>
+  <div class="zulu-date" id="zulu-date">---- -- --</div>
+  <a href="/ops.html" class="access-btn">⬢ OPS DASHBOARD</a>
+</div>
+<div class="classified-strip">Visitor Location Map</div>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js?v=2"></script>
+<script>
+function tick(){
+  const n=new Date();
+  document.getElementById('zulu-time').textContent=n.toISOString().substr(11,8)+'Z';
+  document.getElementById('zulu-date').textContent=n.toISOString().substr(0,10).replace(/-/g,' ');
+}
+setInterval(tick,1000);tick();
+
+const canvas=document.getElementById('globe');
+const renderer=new THREE.WebGLRenderer({canvas,antialias:true,alpha:true});
+renderer.setPixelRatio(window.devicePixelRatio);
+renderer.setSize(window.innerWidth,window.innerHeight);
+const scene=new THREE.Scene();
+const camera=new THREE.PerspectiveCamera(45,window.innerWidth/window.innerHeight,0.1,1000);
+camera.position.z=2.8;
+
+// Everything that spins goes in globeGroup
+const globeGroup=new THREE.Group();
+scene.add(globeGroup);
+
+// Wire sphere
+globeGroup.add(new THREE.Mesh(new THREE.SphereGeometry(1,36,24),new THREE.MeshBasicMaterial({color:0x00ff88,wireframe:true,transparent:true,opacity:.13})));
+// Inner glow
+globeGroup.add(new THREE.Mesh(new THREE.SphereGeometry(.98,32,32),new THREE.MeshBasicMaterial({color:0x003322,transparent:true,opacity:.5})));
+// Atmosphere (stays on group so it spins with it — no visible difference but consistent)
+const atmo=new THREE.Mesh(new THREE.SphereGeometry(1.1,32,32),new THREE.MeshBasicMaterial({color:0x00ff88,transparent:true,opacity:.018,side:THREE.BackSide})); globeGroup.add(atmo);
+// Equator
+globeGroup.add(new THREE.Mesh(new THREE.TorusGeometry(1.002,.002,2,120),new THREE.MeshBasicMaterial({color:0x00ff88,transparent:true,opacity:.7})));
+// Lat rings
+[-60,-30,30,60].forEach(lat=>{
+  const r=Math.cos(lat*Math.PI/180),y=Math.sin(lat*Math.PI/180);
+  const m=new THREE.Mesh(new THREE.TorusGeometry(r*1.001,.001,2,80),new THREE.MeshBasicMaterial({color:0x00ff88,transparent:true,opacity:.3}));
+  m.position.y=y; globeGroup.add(m);
+});
+// Prime meridian
+const pm=new THREE.Mesh(new THREE.TorusGeometry(1.002,.001,2,120),new THREE.MeshBasicMaterial({color:0x00aaff,transparent:true,opacity:.5}));
+pm.rotation.y=Math.PI/2; globeGroup.add(pm);
+
+
+
+// Stars stay in scene (don't spin)
+const sv=[];
+for(let i=0;i<1400;i++){const t=Math.random()*Math.PI*2,p=Math.acos(2*Math.random()-1),r=8+Math.random()*14;sv.push(r*Math.sin(p)*Math.cos(t),r*Math.cos(p),r*Math.sin(p)*Math.sin(t));}
+const sg=new THREE.BufferGeometry();sg.setAttribute('position',new THREE.Float32BufferAttribute(sv,3));
+scene.add(new THREE.Points(sg,new THREE.PointsMaterial({color:0x88ccee,size:.035,transparent:true,opacity:.65})));
+
+function animate(){
+  requestAnimationFrame(animate);
+  globeGroup.rotation.y+=.0009;
+  const t=Date.now();
+  atmo.material.opacity=0.010+0.009*Math.sin(t*0.0007)+0.003*Math.sin(t*0.0029);
+  renderer.render(scene,camera);
+}
+
+
+
+
+// ── LIVE VISITOR CITY PINS ────────────────────────────────
+function makeCityLabel(city, country, visits) {
+  const c = document.createElement('canvas');
+  c.width = 256; c.height = 52;
+  const ctx = c.getContext('2d');
+  ctx.font = 'bold 14px Courier New';
+  ctx.fillStyle = 'rgba(0,220,255,0.95)';
+  ctx.fillText(city, 4, 20);
+  ctx.font = '11px Courier New';
+  ctx.fillStyle = 'rgba(0,255,136,0.7)';
+  ctx.fillText(country + ' · ' + visits.toLocaleString() + ' visits', 4, 38);
+  const tex = new THREE.CanvasTexture(c);
+  const mat = new THREE.SpriteMaterial({ map: tex, transparent: true, depthTest: false });
+  const s = new THREE.Sprite(mat);
+  s.scale.set(.48, .1, 1);
+  return s;
+}
+
+fetch('/api/network-cities')
+  .then(r => r.json())
+  .then(cities => {
+    const maxV = cities[0]?.visits || 1;
+    cities.forEach(({ city, country, visits, lat, lng }) => {
+      if (!lat || !lng) return;
+      const phi   = (90 - lat)  * Math.PI / 180;
+      const theta = (lng + 180) * Math.PI / 180;
+      const x = -(Math.sin(phi) * Math.cos(theta));
+      const y =   Math.cos(phi);
+      const z =   Math.sin(phi) * Math.sin(theta);
+
+      const scale = 0.003 + 0.019 * Math.min(visits / maxV, 1);
+      const dot = new THREE.Mesh(
+        new THREE.SphereGeometry(scale, 8, 8),
+        new THREE.MeshBasicMaterial({ color: 0x00dcff })
+      );
+      dot.position.set(x, y, z);
+      globeGroup.add(dot);
+
+      const lbl = makeCityLabel(city, country, visits);
+      lbl.position.set(x * 1.15, y * 1.15 + .06, z * 1.15);
+      globeGroup.add(lbl);
+    });
+
+    const totalVisits = cities.reduce((a, c) => a + c.visits, 0);
+    const counter = document.createElement('div');
+    counter.style.cssText = 'position:fixed;bottom:32px;right:20px;z-index:20;font-family:Courier New,monospace;font-size:.62rem;color:#00dcff;letter-spacing:.12em;text-align:right;line-height:1.8;text-shadow:0 0 8px rgba(0,220,255,.5)';
+    counter.innerHTML = 'VISITOR INTEL<br>' + cities.length + ' CITIES TRACKED<br>' + totalVisits.toLocaleString() + ' TOTAL INTERCEPTS';
+    document.body.appendChild(counter);
+  })
+  .catch(() => {});
+
+animate();
+window.addEventListener('resize',()=>{camera.aspect=window.innerWidth/window.innerHeight;camera.updateProjectionMatrix();renderer.setSize(window.innerWidth,window.innerHeight);});
+</script>
+<script>(function(){fetch('https://je9.us/track.php',{method:'POST',mode:'no-cors',headers:{'Content-Type':'application/json'},body:JSON.stringify({visit_token:`${Date.now()}-${Math.random().toString(36).slice(2,10)}`,origin_host:location.hostname,path:location.pathname,referrer:document.referrer,language:navigator.language,timezone:Intl.DateTimeFormat().resolvedOptions().timeZone,screen:`${innerWidth}x${innerHeight}`}),keepalive:true}).catch(()=>{})})();</script>
+</body>
+</html>
