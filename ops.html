@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1.0">
-<title>GlobalMap v1.00.02</title>
+<title>GlobalMap v1.0Delta</title>
 <style>
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
 :root{--bg:#050a0f;--panel:#0a1420;--border:#1a3a5c;--accent:#00ff88;--red:#ff3344;--yellow:#ffcc00;--blue:#00aaff;--cyan:#00dcff;--orange:#ff6600;--text:#c8e0f0;--muted:#4a7a9b;--font:'Courier New',monospace;}
@@ -133,7 +133,7 @@ textarea.fi{resize:vertical;min-height:50px;}
   <div style="display:flex;align-items:center">
     <a href="/" class="logo">
       <span style="font-size:1.6rem;vertical-align:middle;margin-right:8px;line-height:1">🌍</span>
-      <span style="letter-spacing:.12em">GLOBALMAP</span><span style="font-size:.55rem;color:var(--muted);letter-spacing:.08em;margin-left:8px;vertical-align:middle">v1.00.02</span>
+      <span style="letter-spacing:.12em">GLOBALMAP</span><span style="font-size:.55rem;color:var(--muted);letter-spacing:.08em;margin-left:8px;vertical-align:middle">v1.0Delta</span>
     </a>
     <div style="display:flex;align-items:center;gap:5px;border-left:1px solid var(--border);margin-left:16px;padding-left:16px">
       <span style="font-size:9px;color:var(--muted);letter-spacing:.08em;font-family:var(--font);white-space:nowrap">LABELS</span>
@@ -493,17 +493,6 @@ textarea.fi{resize:vertical;min-height:50px;}
   <div class="mact"><button class="btn" onclick="closeModal('modal-unit')">Cancel</button><button class="btn primary" onclick="saveUnit()">Save</button></div>
 </div></div>
 
-<div class="modal-bg" id="modal-mission"><div class="modal">
-  <h2>New Mission</h2>
-  <div class="frow full"><label>Title *</label><input class="fi" id="m-title"></div>
-  <div class="frow"><div><label>Status</label><select class="fi" id="m-status"><option>PENDING</option><option>ACTIVE</option><option>CRITICAL</option><option>COMPLETE</option></select></div><div><label>Priority</label><select class="fi" id="m-priority"><option>NORMAL</option><option>HIGH</option><option>URGENT</option></select></div></div>
-  <div class="frow"><div><label>Location</label><input class="fi" id="m-loc"></div><div><label>Timezone</label><input class="fi" id="m-tz" placeholder="e.g. Europe/Moscow"></div></div>
-  <div class="frow"><div><label>Latitude</label><input class="fi" id="m-lat"></div><div><label>Longitude</label><input class="fi" id="m-lng"></div></div>
-  <div class="frow full"><label>Assigned To</label><input class="fi" id="m-assigned"></div>
-  <div class="frow full"><label>Objective</label><textarea class="fi" id="m-obj"></textarea></div>
-  <div class="mact"><button class="btn" onclick="closeModal('modal-mission')">Cancel</button><button class="btn primary" onclick="saveMission()">Save</button></div>
-</div></div>
-
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js?v=2"></script>
 <script>
 // ── CLOCKS ────────────────────────────────────────────────
@@ -675,7 +664,7 @@ window.addEventListener('resize',resizeGlobe);
 
 // ── GLOBE MODES ───────────────────────────────────────────
 const modeLabels={
-  globe:'VISITOR CITIES', missions:'MISSION SITES',
+  globe:'VISITOR CITIES',
   installations:'US BASES', embassies:'US EMBASSIES',
   units:'ELITE UNIT BASES', airports:'WORLD AIRPORTS',
   corps:'CORP HQ LOCATIONS', banks:'GLOBAL BANKS',
@@ -691,64 +680,10 @@ async function loadGlobeFor(mode){
   document.getElementById('mode-indicator').textContent=modeLabels[mode]||mode.toUpperCase();
 
   try {
-    if(mode==='all'){
-      const [installs,units,airports,corps,banks,dcs,defense,refs,unis,telecom,cities]=await Promise.all([
-        fetch('/api/installations').then(r=>r.json()).catch(()=>[]),
-        fetch('/api/units').then(r=>r.json()).catch(()=>[]),
-        fetch('/api/airports').then(r=>r.json()).catch(()=>[]),
-        fetch('/api/corporations').then(r=>r.json()).catch(()=>[]),
-        fetch('/api/banks').then(r=>r.json()).catch(()=>[]),
-        fetch('/api/datacenters').then(r=>r.json()).catch(()=>[]),
-        fetch('/api/defense').then(r=>r.json()).catch(()=>[]),
-        fetch('/api/refineries').then(r=>r.json()).catch(()=>[]),
-        fetch('/api/universities').then(r=>r.json()).catch(()=>[]),
-        fetch('/api/telecom').then(r=>r.json()).catch(()=>[]),
-        fetch('/api/network-cities').then(r=>r.json()).catch(()=>[]),
-      ]);
-      const bases=installs.filter(r=>r.branch!=='Embassy');
-      const embassies=installs.filter(r=>r.branch==='Embassy');
-      bases.forEach(r=>{if(r.lat&&r.lng)addPin(r.lat,r.lng,0xff6600,0.009,r.name,r.branch+' · '+r.country);});
-      embassies.forEach(r=>{if(r.lat&&r.lng)addPin(r.lat,r.lng,0x00aaff,0.007,r.name,r.country);});
-      units.forEach(r=>{if(r.lat&&r.lng)addPin(r.lat,r.lng,0xff3344,0.010,r.name,r.country);});
-      airports.forEach(r=>{if(r.lat&&r.lng)addPin(r.lat,r.lng,0xffcc00,0.006,r.name,r.city+', '+r.country);});
-      corps.forEach((r,i)=>{if(r.lat&&r.lng)addPin(r.lat,r.lng,0xff8800,0.007,r.name,r.country);});
-      banks.forEach(r=>{if(r.lat&&r.lng)addPin(r.lat,r.lng,0xffd700,0.008,r.name,r.country);});
-      dcs.forEach(r=>{if(r.lat&&r.lng)addPin(r.lat,r.lng,r.type==='hyperscale'?0x00ffff:0x0088ff,0.007,r.name,r.operator);});
-      defense.forEach(r=>{if(r.lat&&r.lng)addPin(r.lat,r.lng,0xff4422,0.008,r.name,r.country);});
-      const maxCap=Math.max(...refs.map(r=>r.capacity_bpd||0),1);
-      refs.forEach(r=>{if(r.lat&&r.lng)addPin(r.lat,r.lng,0xff7700,0.006+0.008*(r.capacity_bpd||0)/maxCap,r.name,r.operator);});
-      unis.forEach(r=>{if(r.lat&&r.lng)addPin(r.lat,r.lng,0x9966ff,0.009+0.006*(1-(r.rank-1)/99),r.name,'#'+r.rank);});
-      const maxTelSubs=Math.max(...telecom.map(r=>r.subscribers_millions||0),1);
-      telecom.forEach(r=>{if(r.lat&&r.lng)addPin(r.lat,r.lng,0x00e5cc,0.008+0.014*(r.subscribers_millions||0)/maxTelSubs,r.name,r.country);});
-      const maxV=cities[0]?.visits||1;
-      cities.forEach(r=>{if(r.lat&&r.lng)addPin(r.lat,r.lng,0x00dcff,0.004+0.008*Math.min(r.visits/maxV,1),r.city,r.country);});
-      const total=installs.length+units.length+airports.length+corps.length+banks.length+dcs.length+defense.length+refs.length+unis.length+telecom.length+cities.length;
-      flushPins(true);document.getElementById('globe-count').textContent=total+' pins';
-      document.getElementById('all-layer-counts').innerHTML=[
-        ['◉ Bases',bases.length,'#ff6600'],
-        ['🏛 Embassies',embassies.length,'#00aaff'],
-        ['◈ Elite Units',units.length,'#ff3344'],
-        ['✈ Airports',airports.length,'#ffcc00'],
-        ['🏢 Corps',corps.length,'#ff8800'],
-        ['🏦 Banks',banks.length,'#ffd700'],
-        ['🖥 Data Ctrs',dcs.length,'#00ccff'],
-        ['⚔ Defense',defense.length,'#ff4422'],
-        ['🛢 Refineries',refs.length,'#ff7700'],
-        ['🎓 Universities',unis.length,'#9966ff'],
-        ['📡 Telecom',telecom.length,'#00e5cc'],
-        ['⬡ Visitor Cities',cities.length,'#00dcff'],
-      ].map(([label,count,color])=>`<div style="display:flex;justify-content:space-between;align-items:center;padding:3px 0;border-bottom:1px solid var(--border)"><span style="font-size:11px;color:#8ab8d4">${label}</span><span style="font-size:11px;font-weight:700;color:${color}">${count}</span></div>`).join('');
-
-    } else if(mode==='installations'){
+    if(mode==='installations'){
       const rows=await fetch('/api/installations').then(r=>r.json());
       rows.forEach(r=>{ if(r.lat&&r.lng) addPin(r.lat,r.lng,0xff6600,.013,r.name,r.country+' · '+(r.branch||'')); });
       flushPins(true);document.getElementById('globe-count').textContent=rows.filter(r=>r.lat&&r.lng).length+' bases';
-
-    } else if(mode==='missions'){
-      const rows=await fetch('/api/missions').then(r=>r.json());
-      const colors={ACTIVE:0x00ff88,CRITICAL:0xff3344,PENDING:0xffcc00,COMPLETE:0x4a7a9b};
-      rows.forEach(r=>{ if(r.lat&&r.lng) addPin(r.lat,r.lng,colors[r.status]||0xffcc00,.014,r.title,r.location||r.status); });
-      flushPins(true);document.getElementById('globe-count').textContent=rows.filter(r=>r.lat&&r.lng).length+' ops';
 
     } else if(mode==='units'){
       const rows=await fetch('/api/units').then(r=>r.json());
@@ -897,17 +832,6 @@ async function loadUnits(){
     <td>${r.type?`<span class="tag tag-type">${esc(r.type)}</span>`:''}</td>
     <td style="color:var(--muted);font-size:10px">${esc(r.home_base||'')}</td>
   </tr>`).join(''):`<tr><td colspan="5" style="color:var(--muted);text-align:center;padding:20px">No units.</td></tr>`;
-}
-
-async function loadMissions(){
-  const rows=await fetch('/api/missions').then(r=>r.json());
-  document.getElementById('mission-cards').innerHTML=rows.length?rows.map(r=>`
-    <div class="mission-card ${esc(r.status)}">
-      <div class="ms-status st-${esc(r.status)}">${esc(r.status)}</div>
-      <div class="ms-title">${esc(r.title)}</div>
-      <div class="ms-meta">${r.location?'📍 '+esc(r.location)+'<br>':''}${r.assigned_to?'👤 '+esc(r.assigned_to)+'<br>':''}${r.objective?'🎯 '+esc(r.objective):''}
-      </div>
-    </div>`).join(''):`<p style="color:var(--muted);font-size:11px;padding:10px 0">No missions logged.</p>`;
 }
 
 const _DEMO_VISITS={total:1,unique_ips:1,by_country:[{country:'US',c:1}],by_path:[{path:'/',c:1}],
@@ -1156,7 +1080,7 @@ document.addEventListener('click', e=>{
 });
 
 // Click globe to resume spin
-document.getElementById('globe-wrap')?.addEventListener('mousedown', ()=>{ targetRotY=null; targetRotX=null; autoSpin=true; });
+document.querySelector('.globe-wrap')?.addEventListener('mousedown', ()=>{ targetRotY=null; targetRotX=null; autoSpin=true; });
 
 // ── COUNTRIES DATA ───────────────────────────────────────
 function flag(code){return String.fromCodePoint(...[...code.toUpperCase()].map(c=>c.charCodeAt(0)+127397));}
@@ -1365,7 +1289,7 @@ function renderCountries(){
     (!region || c.region===region)
   );
   document.getElementById('b-countries').textContent=filtered.length;
-  document.getElementById('country-list').innerHTML=filtered.length?filtered.map(c=>`<tr data-lat="${c.lat||''}" data-lng="${c.lng||''}"
+  document.getElementById('country-list').innerHTML=filtered.length?filtered.map(c=>`<tr data-lat="${c.lat||''}" data-lng="${c.lng||''}">
     <td style="font-size:20px;text-align:center;line-height:1">${c.flag}</td>
     <td><strong>${esc(c.name)}</strong></td>
     <td><span class="tag" style="background:rgba(68,187,255,.15);color:#44bbff;border-color:rgba(68,187,255,.3);font-size:9px">${esc(c.region)}</span></td>
@@ -1382,10 +1306,10 @@ async function loadVisitorCtx() {
       fetch('/api/visits/summary').then(r=>r.json()),
       fetch('/api/network-cities').then(r=>r.json())
     ]);
-    const byCountry = (summary.by_country||[]).slice(0,30).map(r=>`${r.country_geo||'Unknown'}: ${r.count}`).join(', ');
+    const byCountry = (summary.by_country||[]).slice(0,30).map(r=>`${r.country||'Unknown'}: ${r.c||0}`).join(', ');
     const topCities = (cities||[]).slice(0,20).map(r=>`${r.city} (${r.country}): ${r.visits} visits`).join(', ');
-    const topPaths = (summary.by_path||[]).slice(0,10).map(r=>`${r.path}: ${r.count}`).join(', ');
-    visitorCtx = `LIVE VISITOR DATA (nsa.je9.us network — ${summary.total_hits||0} total hits, ${summary.unique_visitors||0} unique IPs, ${summary.countries||0} countries):
+    const topPaths = (summary.by_path||[]).slice(0,10).map(r=>`${r.path}: ${r.c||0}`).join(', ');
+    visitorCtx = `LIVE VISITOR DATA (${summary.total||0} total hits, ${summary.unique_ips||0} unique IPs, ${(summary.by_country||[]).length} countries):
 TOP COUNTRIES: ${byCountry}
 TOP CITIES: ${topCities}
 TOP PAGES: ${topPaths}`;
@@ -1461,9 +1385,11 @@ async function sendClaude() {
 }
 
 async function init(){
-  const m=await fetch('/api/meta').then(r=>r.json());
-  document.getElementById('b-inst').textContent=m.installations;
-  document.getElementById('b-units').textContent=m.units;
+  const m=await fetch('/api/meta').then(r=>r.json()).catch(()=>({}));
+  if(!m||typeof m!=='object'||Array.isArray(m)) return initFallback();
+  m.countries=Array.isArray(m.countries)?m.countries:[];
+  document.getElementById('b-inst').textContent=m.installations||0;
+  document.getElementById('b-units').textContent=m.units||0;
   document.getElementById('b-visits').textContent=m.unique_visitors||0;
   // pre-fill static badges
   document.getElementById('b-emb').textContent=179;
@@ -1477,15 +1403,15 @@ async function init(){
   document.getElementById('b-telecom').textContent=65;
   document.getElementById('b-countries').textContent=195;
   document.getElementById('stat-grid').innerHTML=`
-    <div class="stat-card"><div class="stat-lbl">Installations</div><div class="stat-val">${m.installations}</div><div class="stat-sub">global bases</div></div>
-    <div class="stat-card"><div class="stat-lbl">Elite Units</div><div class="stat-val">${m.units}</div><div class="stat-sub">SOF worldwide</div></div>
-    <div class="stat-card"><div class="stat-lbl">Missions</div><div class="stat-val">${m.missions}</div><div class="stat-sub">operations</div></div>
+    <div class="stat-card"><div class="stat-lbl">Installations</div><div class="stat-val">${m.installations||0}</div><div class="stat-sub">global bases</div></div>
+    <div class="stat-card"><div class="stat-lbl">Elite Units</div><div class="stat-val">${m.units||0}</div><div class="stat-sub">SOF worldwide</div></div>
+    <div class="stat-card"><div class="stat-lbl">Missions</div><div class="stat-val">${m.missions||0}</div><div class="stat-sub">operations</div></div>
     <div class="stat-card"><div class="stat-lbl">Countries</div><div class="stat-val">${m.countries.length}</div><div class="stat-sub">covered</div></div>`;
   const sel=document.getElementById('inst-country');
-  m.countries.forEach(c=>{const o=document.createElement('option');o.value=c;o.textContent=c;sel.appendChild(o);});
+  if(sel.options.length<=1) m.countries.forEach(c=>{const o=document.createElement('option');o.value=c;o.textContent=c;sel.appendChild(o);});
   const usel=document.getElementById('unit-country');
-  m.countries.forEach(c=>{const o=document.createElement('option');o.value=c;o.textContent=c;usel.appendChild(o);});
-  const missions=await fetch('/api/missions').then(r=>r.json());
+  if(usel.options.length<=1) m.countries.forEach(c=>{const o=document.createElement('option');o.value=c;o.textContent=c;usel.appendChild(o);});
+  const missions=await fetch('/api/missions').then(r=>r.json()).catch(()=>[]);
   const active=missions.filter(r=>r.status==='ACTIVE'||r.status==='CRITICAL').slice(0,5);
   document.getElementById('active-missions').innerHTML=active.length?active.map(r=>`
     <div class="mission-card ${esc(r.status)}">
@@ -1493,6 +1419,11 @@ async function init(){
       <div class="ms-title">${esc(r.title)}</div>
       <div class="ms-meta">${r.location?'📍 '+esc(r.location):''}
     </div></div>`).join(''):`<p style="color:var(--muted);font-size:11px">No active missions.</p>`;
+  loadGlobeFor('globe');
+}
+function initFallback(){
+  // API unavailable (e.g. pure static hosting) — still render the globe
+  document.getElementById('active-missions').innerHTML=`<p style="color:var(--muted);font-size:11px">API unavailable.</p>`;
   loadGlobeFor('globe');
 }
 
@@ -1509,12 +1440,6 @@ async function saveUnit(){
   await fetch('/api/units',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(b)});
   closeModal('modal-unit'); loadUnits(); init();
 }
-async function saveMission(){
-  const b={title:document.getElementById('m-title').value,status:document.getElementById('m-status').value,priority:document.getElementById('m-priority').value,location:document.getElementById('m-loc').value,timezone:document.getElementById('m-tz').value,lat:parseFloat(document.getElementById('m-lat').value)||null,lng:parseFloat(document.getElementById('m-lng').value)||null,assigned_to:document.getElementById('m-assigned').value,objective:document.getElementById('m-obj').value};
-  await fetch('/api/missions',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(b)});
-  closeModal('modal-mission'); loadMissions(); loadGlobeFor('missions'); init();
-}
-
 init();
 </script>
 </body>
